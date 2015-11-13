@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/Emolyse/Tron/issues"
   },
-  "homepage": "https://github.com/Emolyse/Tron"
+  "homepage": "https://github.com/Emolyse/Tron",
+  "dependencies": {
+    "express.io": "^1.1.13"
+  }
 }
