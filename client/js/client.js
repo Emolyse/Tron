@@ -4,7 +4,6 @@
 
 (function($) {
 	io = io.connect();
-
 	/** Identification du joueur**/
 	var joueur = localStorage.pseudo;
 
