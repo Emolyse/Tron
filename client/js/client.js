@@ -11,9 +11,9 @@ function login(){
 }
 if(!joueur){
     document.body.append("" +
-    "<overlay><form name='login' onsubmit='login()'>" +
+    "<div class='overlay'><form name='login' class='formLogin' onsubmit='login()'>" +
     "<input type='text' name='pseudo' placeholder='Pseudo'><input type='submit' value='Jouer'/>"+
-    "</form></overlay>");
+    "</form></div>");
 } else {
     io.emit("login",joueur);
 }

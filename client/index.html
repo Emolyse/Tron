@@ -3,9 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <title>Tron</title>
+    <link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,400italic,500,500italic,700italic,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/client_css"/>
 </head>
 <body>
     <h1>Vous etes sur tron</h1>
+
+    <div class='overlay'>
+        <form name='login' class='formLogin' onsubmit='login()'>
+            <input type='text' name='pseudo' placeholder='Pseudo'>
+            <input type='submit' value='Jouer'/>
+        </form>
+    </div>
 </body>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/client_script"></script>

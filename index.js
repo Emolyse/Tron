@@ -12,6 +12,10 @@ app.get('/client_script', function (req,res) {
 
     res.sendfile("client/js/client.js");
 });
+app.get('/client_css', function (req,res) {
+
+    res.sendfile("client/css/style.css");
+});
 
 //app.io.route('ready', function (req) {
 //    req.io.respond("Coucou toi !");
