@@ -5,6 +5,18 @@ app.http().io();
 //app.use(express.cookieParser());
 //app.use(express.session({secret:'emolyse secret_key'}));
 
+var nbPlayer;
+var isPlaying = false;
+var clientsDatas = {
+    "player": {
+        "id": "id",
+        "name": "name",
+        "posX": 100,
+        "posY":100,
+        "color":"red"
+    }
+};
+
 app.get('/', function (req,res) {
     res.sendfile("client/index.html");
 });
