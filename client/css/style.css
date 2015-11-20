@@ -1,0 +1,61 @@
+/*************************************************
+			Reset
+*************************************************/
+html, body, div, h1, h2, h3, h4, h5, h6, form, label,
+legend, caption, aside, details, figcaption, figure, footer,header,
+menu, nav, section, summary {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    font-weight: inherit;
+    font-size: 16px;
+    font-style: inherit;
+    font-family: 'Roboto', sans-serif;
+    vertical-align: baseline;
+    text-decoration: none;
+}
+html, body{
+    font-family: 'Roboto', sans-serif;
+}
+.overlay{
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+.formLogin{
+    position: absolute;
+    width: 50%;
+    max-width: 400px;
+    left: 50%;
+    top: 50%;
+    transform: translate3D(-50%, -50%, 0);
+}
+.formLogin .inputForm{
+    background-color: #ffffff;
+}
+/*.formLogin p{*/
+    /*color: #ffffff;*/
+    /*text-align: center;*/
+    /*font-size: 12px;*/
+/*}*/
+.formLogin input{
+    display: block;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    font-size: 18px;
+    text-align: center;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 300;
+}
+.formLogin input[type='submit']{
+    background-color: #FFA000;
+    color: #ffffff;
+    cursor: pointer;
+}
