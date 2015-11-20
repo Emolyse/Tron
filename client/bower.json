@@ -1,0 +1,25 @@
+{
+  "name": "client",
+  "homepage": "https://github.com/Emolyse/Tron",
+  "authors": [
+    "Rémy <contact@remy-drouet.fr>"
+  ],
+  "description": "Tron client",
+  "main": "js/client.js",
+  "moduleType": [],
+  "keywords": [
+    "jquery",
+    "socket.io"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery": "~2.1.4"
+  }
+}
