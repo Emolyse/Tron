@@ -15,8 +15,11 @@
 
 	    document.login.children.submit.addEventListener("click",function(e) {
 			e.preventDefault();
-			localStorage.pseudo=document.login.children.pseudo.value;
-	    	login();
+			var pseudo = document.login.children.pseudo.value;
+			if(pseudo && pseudo!=""){
+				localStorage.pseudo=pseudo;
+	    		login();
+			}
 		});
 	} else {
 

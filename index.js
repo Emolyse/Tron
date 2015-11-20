@@ -13,9 +13,8 @@ app.get('/client_css', function (req,res) {res.sendfile("client/css/style.css");
 
 // On créé le dialogue client/server
 app.io.route('login', function (req) {
-   req.io.respond("Coucou toi !");
-   req.io.broadcast("newuser","Yo les gars ya un nouveau! Il vous dis :"+req.data);
-   app.io.broadcast("relou","Je fais chier tout le monde !")
+	//req.data
+	req.io.respond("Coucou toi !");
 });
 
 app.listen(3001, function () {
