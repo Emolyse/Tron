@@ -18,17 +18,27 @@
 			var pseudo = document.login.children.pseudo.value;
 			if(pseudo && pseudo!=""){
 				localStorage.pseudo=pseudo;
+				joueur = pseudo;
 	    		login();
 			}
 		});
 	} else {
-
+		login();
 	}
 
 	/** Démarrage de Tron **/
 	function login () {
 	    io.emit("login",joueur,function(resp) {
-			$("div.overlay").fadeOut();
+	    	if($("div.overlay").is(":visible")){
+				$("div.overlay").fadeOut();
+				console.log(resp);
+	    	}
+			if(resp.resp){
+				var profil = $("<div id=profil>"
+					+"Bonjour "+joueur
+					+"</div>");
+				$("body").append(profil);
+			}
 	    });
 	}
 })(jQuery);
