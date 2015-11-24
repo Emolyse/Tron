@@ -7,27 +7,51 @@ app.http().io();
 
 var nbPlayer;
 var isPlaying = false;
-var clientData = [{
-        pseudo      :"Loxy",
-        position    :{
+var clientData = {
+    //Cette liste permet de naviguer dans clientData
+    "list":["Loxy"],
+    //On retrouve ensuite les 0 à 10 clients du plateau
+    "Loxy" :{
+        position  :{//Position de la moto du joueur ( pos du svg du client)
             x:-1,
             y:-1
         },
-        direction   : 'X',
-        moto        : '-1'
+        direction : 'X',//Direction courante dans laquelle se dirige le joueur
+        moto      : '-1',//Le couleur de la moto choisie
+        path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
     }
-];
+};
 
-//On met en place le routage client
+var serverData = {
+    motos_available :[0,1,2,3,4,5,6,7,8,9],//motos disponibles pour
+    initial_position:[],//tableau de position x/y pour chaque couleur de moto
+    waitingRoom     : []//Joueur en attente quand le plateau est plein max:10 joueurs
+}
+
+/****************************************
+ *          Routage Client              *
+ ****************************************/
+
+//Connexion au serveur : On fournit le client
 app.get('/', function (req,res) {res.sendfile("client/index.html");});
-app.get('/client/*', function (req,res) {res.sendfile("."+req.url);});
+//On route tous les fichiers clients nécessaires
+app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile("client/"+req.params[0]);});
 
-// On créé le dialogue client/server
+/****************************************
+ *       DIALOGUE Client/Server         *
+ ****************************************/
+////////////    LOGIN   /////////////////
+
+// Route pour l'identification du joueur sur le server
 app.io.route('login', function (req) {
-	//req.data
-	req.io.respond({resp:true});
+	req.io.respond({
+        res:true,
+        motos_available:serverData.motos_available
+    });
 });
 
+
+////////////    INGAME   /////////////////
 app.io.route('changeDir', function(req){
     // req contient l'id du joueur et la nouvelle direction
 });
