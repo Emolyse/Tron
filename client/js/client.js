@@ -29,11 +29,12 @@
 	/** Démarrage de Tron **/
 	function login () {
 	    io.emit("login",joueur,function(resp) {
-	    	if($("div.overlay").is(":visible")){
-				$("div.overlay").fadeOut();
+			var overlay = $("div.overlay");
+	    	if(overlay.is(":visible")){
+				overlay.fadeOut();
 				console.log(resp);
 	    	}
-			if(resp.resp){
+			if(resp){
 				var profil = $("<div id=profil>"
 					+"Bonjour "+joueur
 					+"</div>");

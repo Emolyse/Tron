@@ -17,12 +17,9 @@ var clientsDatas = {
     }
 };
 
-// On route les pages de l'UI
-app.get('/Tron', function (req,res) {res.sendfile("client/index.html");});
-app.get('/jquery', function (req,res) {res.sendfile("client/bower_components/jquery/dist/jquery.min.js");});
-app.get('/client_script', function (req,res) {res.sendfile("client/js/client.js");});
-app.get('/client_css', function (req,res) {res.sendfile("client/css/style.css");});
-
+//On met en place le routage client
+app.get('/', function (req,res) {res.sendfile("client/index.html");});
+app.get('/client/*', function (req,res) {res.sendfile("."+req.url);});
 
 // On créé le dialogue client/server
 app.io.route('login', function (req) {
