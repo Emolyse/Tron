@@ -7,15 +7,6 @@ app.http().io();
 
 var nbPlayer;
 var isPlaying = false;
-var clientsDatas = {
-    "player": {
-        "id": "id",
-        "name": "name",
-        "posX": 100,
-        "posY":100,
-        "color":"red"
-    }
-};
 
 // On route les pages de l'UI
 app.get('/Tron', function (req,res) {res.sendfile("client/index.html");});
@@ -28,6 +19,10 @@ app.get('/client_css', function (req,res) {res.sendfile("client/css/style.css");
 app.io.route('login', function (req) {
 	//req.data
 	req.io.respond({resp:true});
+});
+
+app.io.route('changeDir', function(req){
+    // req contient l'id du joueur et la nouvelle direction
 });
 
 app.listen(3001, function () {

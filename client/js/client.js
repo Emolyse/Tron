@@ -26,6 +26,15 @@
 		login();
 	}
 
+    $(document).keydown(function(evt){
+        if(evt.keyCode >= 37 && evt.keyCode <= 40){
+            var data = {joueur:joueur, keycode:evt.keycode};
+            io.emit('changeDir', data, function(resp){
+                console.log(resp);
+            });
+        }
+    });
+
 	/** Démarrage de Tron **/
 	function login () {
 	    io.emit("login",joueur,function(resp) {
