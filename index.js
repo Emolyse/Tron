@@ -7,16 +7,16 @@ app.http().io();
 
 var nbPlayer;
 var isPlaying = false;
-var clientsDatas = {
-    "player": {
-        "id": "id",
-        "name": "name",
-        "posX": 100,
-        "posY":100,
-        "color":"red",
-        "direction":""
+var clientData = [{
+        pseudo      :"Loxy",
+        position    :{
+            x:-1,
+            y:-1
+        },
+        direction   : 'X',
+        moto        : '-1'
     }
-};
+];
 
 //On met en place le routage client
 app.get('/', function (req,res) {res.sendfile("client/index.html");});
@@ -40,4 +40,3 @@ app.io.route('direction', function(req) {
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
-
