@@ -13,7 +13,8 @@ var clientsDatas = {
         "name": "name",
         "posX": 100,
         "posY":100,
-        "color":"red"
+        "color":"red",
+        "direction":""
     }
 };
 
@@ -27,6 +28,16 @@ app.io.route('login', function (req) {
 	req.io.respond({resp:true});
 });
 
+app.io.route('changeDir', function(req){
+    // req contient l'id du joueur et la nouvelle direction
+});
+
+// On récupère une action pour la donner aux autres
+app.io.route('direction', function(req) {
+    req.io.respond("Action d'un autre joueur : "+req.data);
+});
+
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
+
