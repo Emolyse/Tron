@@ -6,6 +6,17 @@ var motosFiles = ['blue.png', 'green.png', 'greenblue.png', 'greyblue.png', 'ora
 
 var playersData;
 
+/* Variables de l'initialisation du canvas */
+var screenHeight = innerHeight;
+var screenWidth = innerWidth;
+var ctx;
+
+    if(!joueur) {
+        document.body.innerHTML += "" +
+        "<div class='overlay'><form class='formLogin' name='login' action='#'>" +
+        "<input type='text' name='pseudo' placeholder='Pseudo'><input name='submit' type='button' value='Jouer'/>" +
+        "</form></div>";
+    }
 
 (function($) {
     console.log("je suis debile");
@@ -100,6 +111,19 @@ $(document).ready(function() {
 	    });
 	}
 
+
+    ////////////    INIT GAME ////////////////
+    $("body").append('<canvas id="tronCanvas" height="'+screenHeight+'" width="'+screenWidth+'"> </canvas>');
+    var $canvas = $("#tronCanvas");
+    var canvas = $canvas[0];
+    canvas.width = screenWidth;
+    canvas.height = screenHeight;
+    canvas.style.background="#f2f2f2";
+    ctx = canvas.getContext("2d");
+    ctx.lineWidth = 5;
+    drawPlayers();
+
+
     ////////////    INGAME   /////////////////
     document.addEventListener('keyup', function(e) {
         if ((e.keyCode || e.which) == 38) {
@@ -126,8 +150,83 @@ $(document).ready(function() {
         });
     }
 
+    //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
+    function drawPlayers(){
+        var data = {
+            "list":["Loxy","proxy"],
+            //Cette liste permet de naviguer dans clientData
+            //On retrouve ensuite les 0 à 10 clients du plateau
+            "players" : {
+                "Loxy": {
+                    position: {//Position de la moto du joueur ( pos du svg du client)
+                        x: 400,
+                        y: 400
+                    },
+                    direction: 'E',//Direction courante dans laquelle se dirige le joueur
+                    moto: 'blue',//Le couleur de la moto choisie
+                    path: {
+                        moveto: [50, 50],
+                        lineto: [50, 400, 400, 400]
+                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+                },
+
+                "proxy": {
+                    position: {//Position de la moto du joueur ( pos du svg du client)
+                        x: 200,
+                        y: 100
+                    },
+                    direction: 'W',//Direction courante dans laquelle se dirige le joueur
+                    moto: 'red',//Le couleur de la moto choisie
+                    path: {
+                        moveto: [800, 800],
+                        lineto: [800, 500, 500, 500, 500, 100, 200, 100]
+                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+                }
+            }
+        };
+        var clientData = data.players;
+        $.each(clientData, function(i, item) {
+            var paths = clientData[i].path.lineto;
+            var color = clientData[i].moto;
+            ctx.beginPath();
+            ctx.moveTo(clientData[i].path.moveto[0],clientData[i].path.moveto[1]);
+            for(var j=0 ; j < paths.length ; j=j+2){
+                ctx.lineTo(clientData[i].path.lineto[j],clientData[i].path.lineto[j+1]);
+            };
+            var img = new Image();
+            img.src = motoPath+color+".png";
+            drawRotated(clientData[i].direction,clientData[i].position.x,clientData[i].position.y,img);
+            ctx.strokeStyle = clientData[i].moto;
+            ctx.stroke();
+        });
+    }
+    /* Permet de modifier la direction de l'image de la moto*/
+    function drawRotated(direction, x, y, img){
+        var degres = 0;
+        switch(direction) {
+            case "W":
+                degres = 180;
+                break;
+            case "N":
+                degres = -90;
+                break;
+            case "S":
+                degres = 90;
+                break;
+            default: degres = 0;
+        }
+        img.onload = function() {
+            ctx.save();
+            var rad = degres*Math.PI/180;
+            //ctx.drawImage(img, x,y-img.height/2);  //Image de base
+            ctx.translate(x, y);
+            ctx.rotate(rad);
+            ctx.drawImage(img, 0,-img.height/2);
+            ctx.restore();
+        };
+    }
+
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
-
 });
 })(jQuery);
