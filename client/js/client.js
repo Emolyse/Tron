@@ -2,8 +2,18 @@ var joueur = {
     pseudo:localStorage.pseudo
 };
 var motoPath = '/client/img/motos/moto_';
-var motosFiles = ['blue.png', 'green.png', 'greenblue.png', 'greyblue.png', 'orange.png', 'pink.png', 'purple.png', 'red.png', 'violet.png', 'yellow.png'];
-
+var motos = {
+    "blue": {file: "blue.png", color: "blue"},
+    "green":{file: "green.png", color:"green"},
+    "greenblue":{file: "greenblue.png", color:"greenblue"},
+    "greyblue":{file: "greyblue.png", color:"greyblue"},
+    "orange":{file: "orange.png", color:"orange"},
+    "pink":{file: "pink.png", color:"pink"},
+    "purple":{file: "purple.png", color:"purple"},
+    "red":{file: "red.png", color:"red"},
+    "violet":{file: "violet.png", color:"violet"},
+    "yellow":{file: "yellow.png", color:"yellow"}
+};
 var playersData;
 
 /* Variables de l'initialisation du canvas */
@@ -106,12 +116,12 @@ $(document).ready(function() {
 
 
     ////////////    INIT GAME ////////////////
-    $("body").append('<canvas id="tronCanvas" height="' + screenHeight + '" width="' + screenWidth + '"> </canvas>');
+    $("body").append('<canvas id="tronCanvas" height="'+screenHeight+'" width="'+screenWidth+'"> </canvas>');
     var $canvas = $("#tronCanvas");
     var canvas = $canvas[0];
     canvas.width = screenWidth;
     canvas.height = screenHeight;
-    canvas.style.background = "#f2f2f2";
+    canvas.style.background="#f2f2f2";
     ctx = canvas.getContext("2d");
     ctx.lineWidth = 5;
     drawPlayers();
@@ -150,61 +160,48 @@ $(document).ready(function() {
     });
 
     //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
-    function drawPlayers() {
+    function drawPlayers(){
         var data = {
-            "list": ["Loxy", "proxy"],
+            "list":["Loxy","proxy"],
             //Cette liste permet de naviguer dans clientData
             //On retrouve ensuite les 0 à 10 clients du plateau
-            "players": {
-                "Loxy": {
-                    position: {//Position de la moto du joueur ( pos du svg du client)
-                        x: 400,
-                        y: 400
+            "players" : {
+                    "Loxy": {
+                        position: {x: 400, y: 400},//Position de la moto du joueur ( pos du svg du client)
+                        direction: 'E',//Direction courante dans laquelle se dirige le joueur
+                        moto: "blue",//Le couleur de la moto choisie
+                        paths: [{x: 50, y: 400}, {x: 400, y: 400}]
+                        //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
                     },
-                    direction: 'E',//Direction courante dans laquelle se dirige le joueur
-                    moto: 'blue',//Le couleur de la moto choisie
-                    path: {
-                        moveto: [50, 50],
-                        lineto: [50, 400, 400, 400]
-                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                },
 
-                "proxy": {
-                    position: {//Position de la moto du joueur ( pos du svg du client)
-                        x: 200,
-                        y: 100
-                    },
-                    direction: 'W',//Direction courante dans laquelle se dirige le joueur
-                    moto: 'red',//Le couleur de la moto choisie
-                    path: {
-                        moveto: [800, 800],
-                        lineto: [800, 500, 500, 500, 500, 100, 200, 100]
-                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                }
+                    "proxy": {
+                        position: {x: 200, y: 100},//Position de la moto du joueur ( pos du svg du client)
+                        direction: 'W',//Direction courante dans laquelle se dirige le joueur
+                        moto: "red",//Le couleur de la moto choisie
+                        paths: [{x: 800, y: 500}, {x: 500, y: 500}, {x: 500, y: 100}, {x: 200, y: 100}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+                    }
             }
         };
-        var clientData = data.players;
-        $.each(clientData, function (i, item) {
-            var paths = clientData[i].path.lineto;
-            var color = clientData[i].moto;
+        var players = data.players;
+        $.each(players, function(i) {
+            var color = motos[players[i].moto].color;
             ctx.beginPath();
-            ctx.moveTo(clientData[i].path.moveto[0], clientData[i].path.moveto[1]);
-            for (var j = 0; j < paths.length; j = j + 2) {
-                ctx.lineTo(clientData[i].path.lineto[j], clientData[i].path.lineto[j + 1]);
-            }
-            ;
+            ctx.moveTo(players[i].paths[0].x,players[i].paths[0].y);
+            var paths = players[i].paths;
+            $.each(paths, function(j){
+                ctx.lineTo(paths[j].x, paths[j].y);
+            });
             var img = new Image();
-            img.src = motoPath + color + ".png";
-            drawRotated(clientData[i].direction, clientData[i].position.x, clientData[i].position.y, img);
-            ctx.strokeStyle = clientData[i].moto;
+            img.src = motoPath+motos[players[i].moto].file;
+            drawRotated(players[i].direction,players[i].position.x,players[i].position.y,img);
+            ctx.strokeStyle = players[i].moto;
             ctx.stroke();
         });
     }
-
     /* Permet de modifier la direction de l'image de la moto*/
-    function drawRotated(direction, x, y, img) {
+    function drawRotated(direction, x, y, img){
         var degres = 0;
-        switch (direction) {
+        switch(direction) {
             case "W":
                 degres = 180;
                 break;
@@ -214,16 +211,15 @@ $(document).ready(function() {
             case "S":
                 degres = 90;
                 break;
-            default:
-                degres = 0;
+            default: degres = 0;
         }
-        img.onload = function () {
+        img.onload = function() {
             ctx.save();
-            var rad = degres * Math.PI / 180;
+            var rad = degres*Math.PI/180;
             //ctx.drawImage(img, x,y-img.height/2);  //Image de base
             ctx.translate(x, y);
             ctx.rotate(rad);
-            ctx.drawImage(img, 0, -img.height / 2);
+            ctx.drawImage(img, 0,-img.height/2);
             ctx.restore();
         };
     }
