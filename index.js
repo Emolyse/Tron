@@ -11,13 +11,13 @@ var clientData = {
     //Cette liste permet de naviguer dans clientData
     list:["Loxy"],
     //On retrouve ensuite les 0 à 10 clients du plateau
-    players:{
-        "Loxy" :{
+    players :{
+        Loxy :{
             position  :{//Position de la moto du joueur ( pos du svg du client)
                 x:-1,
                 y:-1
             },
-            direction : 'X',//Direction courante dans laquelle se dirige le joueur
+            direction : 'X',//Direction courante dans laquelle se dirige le joueur x : initialisation, n : north, s : south, e : east, w : west
             moto      : '-1',//Le couleur de la moto choisie
             path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
         }
@@ -83,8 +83,11 @@ app.io.route('login', function (req) {
 ////////////    INGAME   /////////////////
 // On récupère une action pour la donner aux autres
 app.io.route('changeDir', function(req){
+    var loginJoueur = req.data.joueur;
+    var directionJoueur = req.data.direction;
+    clientData.players[loginJoueur].direction = directionJoueur;
     // req contient l'id du joueur et la nouvelle direction
-    req.io.broadcast("changeDir", "Action du joueur "+req.data.joueur+" : "+req.data.keycode);
+    req.io.broadcast("changeDir", "Action du joueur "+req.data.joueur+" : "+req.data.direction); // envoie aux autres client des infos du joueur
 });
 
 app.listen(3001, function () {
