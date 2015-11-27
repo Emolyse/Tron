@@ -121,7 +121,23 @@ $(document).ready(function() {
     /** Evénements du joueur **/
     document.addEventListener('keyup', function (evt) {
         if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
-            var data = {joueur: joueur, direction: evt.which};
+            var key = evt.which;
+            console.log(key);
+            var direction = "";
+            if(key == 37){
+                direction = "w";
+            }
+            if(key == 38){
+                direction = "n";
+            }
+            if(key == 39){
+                direction = "e";
+            }
+            if(key == 40){
+                direction = "s";
+            }
+
+            var data = {joueur: joueur.pseudo, direction: direction};
             io.emit('changeDir', data, function (resp) {
                 console.log(resp);
             });
