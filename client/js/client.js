@@ -2,8 +2,18 @@ var joueur = {
     pseudo:localStorage.pseudo
 };
 var motoPath = '/client/img/motos/moto_';
-var motosFiles = ['blue.png', 'green.png', 'greenblue.png', 'greyblue.png', 'orange.png', 'pink.png', 'purple.png', 'red.png', 'violet.png', 'yellow.png'];
-
+var motos = {
+    "blue": {file: "blue.png", color: "blue"},
+    "green":{file: "green.png", color:"green"},
+    "greenblue":{file: "greenblue.png", color:"greenblue"},
+    "greyblue":{file: "greyblue.png", color:"greyblue"},
+    "orange":{file: "orange.png", color:"orange"},
+    "pink":{file: "pink.png", color:"pink"},
+    "purple":{file: "purple.png", color:"purple"},
+    "red":{file: "red.png", color:"red"},
+    "violet":{file: "violet.png", color:"violet"},
+    "yellow":{file: "yellow.png", color:"yellow"}
+};
 var playersData;
 
 /* Variables de l'initialisation du canvas */
@@ -44,7 +54,7 @@ $(document).ready(function() {
             joueur.pseudo = undefined;
             pseudoElement = "<input id='pseudoLogin' type='text' name='pseudo' placeholder='Pseudo'>";
         }
-        document.body.innerHTML += "" +
+        document.body.innerHTML +=
             "<div class='overlay'>" +
             "<div id='motoSelector'>"+motoElements+"</div>"+
             "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
@@ -157,46 +167,35 @@ $(document).ready(function() {
             //Cette liste permet de naviguer dans clientData
             //On retrouve ensuite les 0 à 10 clients du plateau
             "players" : {
-                "Loxy": {
-                    position: {//Position de la moto du joueur ( pos du svg du client)
-                        x: 400,
-                        y: 400
+                    "Loxy": {
+                        position: {x: 400, y: 400},//Position de la moto du joueur ( pos du svg du client)
+                        direction: 'E',//Direction courante dans laquelle se dirige le joueur
+                        moto: "blue",//Le couleur de la moto choisie
+                        paths: [{x: 50, y: 400}, {x: 400, y: 400}]
+                        //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
                     },
-                    direction: 'E',//Direction courante dans laquelle se dirige le joueur
-                    moto: 'blue',//Le couleur de la moto choisie
-                    path: {
-                        moveto: [50, 50],
-                        lineto: [50, 400, 400, 400]
-                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                },
 
-                "proxy": {
-                    position: {//Position de la moto du joueur ( pos du svg du client)
-                        x: 200,
-                        y: 100
-                    },
-                    direction: 'W',//Direction courante dans laquelle se dirige le joueur
-                    moto: 'red',//Le couleur de la moto choisie
-                    path: {
-                        moveto: [800, 800],
-                        lineto: [800, 500, 500, 500, 500, 100, 200, 100]
-                    }//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                }
+                    "proxy": {
+                        position: {x: 200, y: 100},//Position de la moto du joueur ( pos du svg du client)
+                        direction: 'W',//Direction courante dans laquelle se dirige le joueur
+                        moto: "red",//Le couleur de la moto choisie
+                        paths: [{x: 800, y: 500}, {x: 500, y: 500}, {x: 500, y: 100}, {x: 200, y: 100}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+                    }
             }
         };
-        var clientData = data.players;
-        $.each(clientData, function(i, item) {
-            var paths = clientData[i].path.lineto;
-            var color = clientData[i].moto;
+        var players = data.players;
+        $.each(players, function(i) {
+            var color = motos[players[i].moto].color;
             ctx.beginPath();
-            ctx.moveTo(clientData[i].path.moveto[0],clientData[i].path.moveto[1]);
-            for(var j=0 ; j < paths.length ; j=j+2){
-                ctx.lineTo(clientData[i].path.lineto[j],clientData[i].path.lineto[j+1]);
-            };
+            ctx.moveTo(players[i].paths[0].x,players[i].paths[0].y);
+            var paths = players[i].paths;
+            $.each(paths, function(j){
+                ctx.lineTo(paths[j].x, paths[j].y);
+            });
             var img = new Image();
-            img.src = motoPath+color+".png";
-            drawRotated(clientData[i].direction,clientData[i].position.x,clientData[i].position.y,img);
-            ctx.strokeStyle = clientData[i].moto;
+            img.src = motoPath+motos[players[i].moto].file;
+            drawRotated(players[i].direction,players[i].position.x,players[i].position.y,img);
+            ctx.strokeStyle = players[i].moto;
             ctx.stroke();
         });
     }
