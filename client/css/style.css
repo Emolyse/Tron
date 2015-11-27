@@ -20,13 +20,14 @@ html, body{
 }
 .overlay{
     position: fixed;
+    overflow: hidden;
     width: 100%;
     height: 100%;
     top: 0;
     left: 0;
     background-color: rgba(0, 0, 0, 0.8);
 }
-.formLogin{
+#formLogin{
     position: absolute;
     width: 50%;
     max-width: 400px;
@@ -34,10 +35,10 @@ html, body{
     top: 50%;
     transform: translate3D(-50%, -50%, 0);
 }
-.formLogin .inputForm{
+#formLogin .inputForm{
     background-color: #ffffff;
 }
-.formLogin input{
+#formLogin input{
     display: block;
     width: 100%;
     border: none;
@@ -49,7 +50,7 @@ html, body{
     font-family: 'Roboto', sans-serif;
     font-weight: 300;
 }
-.formLogin input[type='button']{
+#formLogin input[type='submit']{
     background-color: #FFA000;
     color: #ffffff;
     cursor: pointer;

@@ -7,30 +7,51 @@ app.http().io();
 
 var nbPlayer;
 var isPlaying = false;
-var clientsDatas = {
-    "player": {
-        "id": "id",
-        "name": "name",
-        "posX": 100,
-        "posY":100,
-        "color":"red",
-        "direction":""
+var clientData = {
+    //Cette liste permet de naviguer dans clientData
+    "list":["Loxy"],
+    //On retrouve ensuite les 0 à 10 clients du plateau
+    "Loxy" :{
+        position  :{//Position de la moto du joueur ( pos du svg du client)
+            x:-1,
+            y:-1
+        },
+        direction : 'X',//Direction courante dans laquelle se dirige le joueur
+        moto      : '-1',//Le couleur de la moto choisie
+        path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
     }
 };
 
-// On route les pages de l'UI
-app.get('/Tron', function (req,res) {res.sendfile("client/index.html");});
-app.get('/jquery', function (req,res) {res.sendfile("client/bower_components/jquery/dist/jquery.min.js");});
-app.get('/client_script', function (req,res) {res.sendfile("client/js/client.js");});
-app.get('/client_css', function (req,res) {res.sendfile("client/css/style.css");});
+var serverData = {
+    motos_available :[0,1,2,3,4,5,6,7,8,9],//motos disponibles pour
+    initial_position:[],//tableau de position x/y pour chaque couleur de moto
+    waitingRoom     : []//Joueur en attente quand le plateau est plein max:10 joueurs
+}
 
+/****************************************
+ *          Routage Client              *
+ ****************************************/
 
-// On créé le dialogue client/server
+//Connexion au serveur : On fournit le client
+app.get('/', function (req,res) {res.sendfile("client/index.html");});
+//On route tous les fichiers clients nécessaires
+app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile("client/"+req.params[0]);});
+
+/****************************************
+ *       DIALOGUE Client/Server         *
+ ****************************************/
+////////////    LOGIN   /////////////////
+
+// Route pour l'identification du joueur sur le server
 app.io.route('login', function (req) {
-	//req.data
-	req.io.respond({resp:true});
+	req.io.respond({
+        res:true,
+        motos_available:serverData.motos_available
+    });
 });
 
+
+////////////    INGAME   /////////////////
 // On récupère une action pour la donner aux autres
 app.io.route('changeDir', function(req){
     // req contient l'id du joueur et la nouvelle direction
@@ -40,4 +61,3 @@ app.io.route('changeDir', function(req){
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
-
