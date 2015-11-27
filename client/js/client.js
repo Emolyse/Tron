@@ -11,19 +11,11 @@ var screenHeight = innerHeight;
 var screenWidth = innerWidth;
 var ctx;
 
-    if(!joueur) {
-        document.body.innerHTML += "" +
-        "<div class='overlay'><form class='formLogin' name='login' action='#'>" +
-        "<input type='text' name='pseudo' placeholder='Pseudo'><input name='submit' type='button' value='Jouer'/>" +
-        "</form></div>";
-    }
-
 (function($) {
-    console.log("je suis debile");
 $(document).ready(function() {
 
-    io = io.connect();
-    io.emit("newclient", joueur, function (resp) {
+	io = io.connect();
+    io.emit("newclient",joueur, function (resp) {
         loadLoginOverlay(resp);
     });
 
@@ -77,7 +69,7 @@ $(document).ready(function() {
                     }
                 });
             }
-            if (!joueur.moto) {
+            if(!joueur.moto){
                 //On affiche un message d'erreur demandant la sélection d'une moto
             }
             //Quand le joueur a choisi un nom et sélectionné une moto il peut se logguer
