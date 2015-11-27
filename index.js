@@ -59,9 +59,7 @@ app.io.route('newclient', function (req) {
 app.io.route('changeDir', function(req){
     var loginJoueur = req.data.joueur;
     var directionJoueur = req.data.direction;
-    console.log("directionJoueur : "+directionJoueur);
-    //clientData.players[loginJoueur].direction = directionJoueur;
-    console.log("clientdata : "+clientData);
+    clientData.players[loginJoueur].direction = directionJoueur;
     // req contient l'id du joueur et la nouvelle direction
     req.io.broadcast("changeDir", "Action du joueur "+req.data.joueur+" : "+req.data.direction); // envoie aux autres client des infos du joueur
 });
