@@ -22,53 +22,54 @@ var ctx;
     console.log("je suis debile");
 $(document).ready(function() {
 
-	io = io.connect();
-    io.emit("newclient",joueur, function (resp) {
+    io = io.connect();
+    io.emit("newclient", joueur, function (resp) {
         loadLoginOverlay(resp);
     });
+
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
     ////////////    LOGIN   /////////////////
-    function loadLoginOverlay(loginData,callback){
+    function loadLoginOverlay(loginData, callback) {
         //On créé la sélection de motos disponibles
-        var motoElements="";
-        for(var i=0;i<loginData.availableMotos.length;i++){
-            motoElements+="<img src="+motoPath+motosFiles[loginData.availableMotos[i]]+" data-moto-id="+loginData.availableMotos[i]+">";
+        var motoElements = "";
+        for (var i = 0; i < loginData.availableMotos.length; i++) {
+            motoElements += "<img src=" + motoPath + motosFiles[loginData.availableMotos[i]] + " data-moto-id=" + loginData.availableMotos[i] + ">";
         }
         //On vérifie si le joueur a un pseudo disponible
         var pseudoElement;
-        if(loginData.availablePseudo){
-            pseudoElement = "<h1>Bonjour "+joueur.pseudo+" !</h1>";
+        if (loginData.availablePseudo) {
+            pseudoElement = "<h1>Bonjour " + joueur.pseudo + " !</h1>";
         } else {
             joueur.pseudo = undefined;
             pseudoElement = "<input id='pseudoLogin' type='text' name='pseudo' placeholder='Pseudo'>";
         }
         document.body.innerHTML += "" +
-            "<div class='overlay'>" +
-            "<div id='motoSelector'>"+motoElements+"</div>"+
-            "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
-            "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>"+
-            "</form></div>";
+        "<div class='overlay'>" +
+        "<div id='motoSelector'>" + motoElements + "</div>" +
+        "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
+        "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>" +
+        "</form></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
         io.on("motoUnvailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
         });
 
         //On effectue le traitement du clic sur Joueur
-        $("#formLogin").submit(function(e) {
+        $("#formLogin").submit(function (e) {
             e.preventDefault();
-            if(!joueur.pseudo) {
+            if (!joueur.pseudo) {
                 var pseudo = document.login.children.pseudo.value;
                 //On vérifie si le pseudo est disponible si il est dispo le serveur le valide
-                io.emit('availablePseudo',joueur.pseudo, function (resp) {
-                    if(resp){
+                io.emit('availablePseudo', joueur.pseudo, function (resp) {
+                    if (resp) {
                         localStorage.pseudo = pseudo;
                         joueur.pseudo = pseudo;
-                        if(!joueur.moto){
+                        if (!joueur.moto) {
                             $('#pseudoLogin').fadeOut("fast", function () {
                                 this.remove();
-                                $('#formLogin').prepend("<h1>Bonjour "+joueur.pseudo+" ! Choisis une moto.</h1>");
+                                $('#formLogin').prepend("<h1>Bonjour " + joueur.pseudo + " ! Choisis une moto.</h1>");
                             });
                         }
                     } else {
@@ -76,11 +77,11 @@ $(document).ready(function() {
                     }
                 });
             }
-            if(!joueur.moto){
+            if (!joueur.moto) {
                 //On affiche un message d'erreur demandant la sélection d'une moto
             }
             //Quand le joueur a choisi un nom et sélectionné une moto il peut se logguer
-            if(joueur.pseudo && joueur.moto){
+            if (joueur.pseudo && joueur.moto) {
                 login();
                 callback();
             }
@@ -88,37 +89,37 @@ $(document).ready(function() {
     }
 
 
-	/** Démarrage de Tron **/
-	function login () {
+    /** Démarrage de Tron **/
+    function login() {
         //Une fois les données reccueillie on signal au serveur que notre profil peut etre créé
-	    io.emit("login",joueur,function(resp) {
-            if(resp.error){//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
+        io.emit("login", joueur, function (resp) {
+            if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
 
-            }else{
+            } else {
                 //On fait disparaitre l'overlay
-			    var overlay = $("div.overlay");
-                if(overlay.is(":visible")){
-                    overlay.animate({height:0},400,null, overlay.remove);
+                var overlay = $("div.overlay");
+                if (overlay.is(":visible")) {
+                    overlay.animate({height: 0}, 400, null, overlay.remove);
                 }
 
             }
-			if(resp){
-				var profil = $("<div id=profil>"
-					+"Bonjour "+joueur.pseudo
-					+"</div>");
-				$("body").append(profil);
-			}
-	    });
-	}
+            if (resp) {
+                var profil = $("<div id=profil>"
+                + "Bonjour " + joueur.pseudo
+                + "</div>");
+                $("body").append(profil);
+            }
+        });
+    }
 
 
     ////////////    INIT GAME ////////////////
-    $("body").append('<canvas id="tronCanvas" height="'+screenHeight+'" width="'+screenWidth+'"> </canvas>');
+    $("body").append('<canvas id="tronCanvas" height="' + screenHeight + '" width="' + screenWidth + '"> </canvas>');
     var $canvas = $("#tronCanvas");
     var canvas = $canvas[0];
     canvas.width = screenWidth;
     canvas.height = screenHeight;
-    canvas.style.background="#f2f2f2";
+    canvas.style.background = "#f2f2f2";
     ctx = canvas.getContext("2d");
     ctx.lineWidth = 5;
     drawPlayers();
@@ -126,27 +127,27 @@ $(document).ready(function() {
 
     ////////////    INGAME   /////////////////
     /** Evénements du joueur **/
-    document.addEventListener('keyup', function(evt){
-        if((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)){
-            var data = {joueur:joueur, keycode:evt.which};
-            io.emit('changeDir', data, function(resp){
+    document.addEventListener('keyup', function (evt) {
+        if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
+            var data = {joueur: joueur, keycode: evt.which};
+            io.emit('changeDir', data, function (resp) {
                 console.log(resp);
             });
         }
     });
 
     /** Récupération des infos d'un joueur **/
-    io.on('changeDir', function(data) {
-        console.log('data : '+data);
+    io.on('changeDir', function (data) {
+        console.log('data : ' + data);
     });
 
     //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
-    function drawPlayers(){
+    function drawPlayers() {
         var data = {
-            "list":["Loxy","proxy"],
+            "list": ["Loxy", "proxy"],
             //Cette liste permet de naviguer dans clientData
             //On retrouve ensuite les 0 à 10 clients du plateau
-            "players" : {
+            "players": {
                 "Loxy": {
                     position: {//Position de la moto du joueur ( pos du svg du client)
                         x: 400,
@@ -175,25 +176,27 @@ $(document).ready(function() {
             }
         };
         var clientData = data.players;
-        $.each(clientData, function(i, item) {
+        $.each(clientData, function (i, item) {
             var paths = clientData[i].path.lineto;
             var color = clientData[i].moto;
             ctx.beginPath();
-            ctx.moveTo(clientData[i].path.moveto[0],clientData[i].path.moveto[1]);
-            for(var j=0 ; j < paths.length ; j=j+2){
-                ctx.lineTo(clientData[i].path.lineto[j],clientData[i].path.lineto[j+1]);
-            };
+            ctx.moveTo(clientData[i].path.moveto[0], clientData[i].path.moveto[1]);
+            for (var j = 0; j < paths.length; j = j + 2) {
+                ctx.lineTo(clientData[i].path.lineto[j], clientData[i].path.lineto[j + 1]);
+            }
+            ;
             var img = new Image();
-            img.src = motoPath+color+".png";
-            drawRotated(clientData[i].direction,clientData[i].position.x,clientData[i].position.y,img);
+            img.src = motoPath + color + ".png";
+            drawRotated(clientData[i].direction, clientData[i].position.x, clientData[i].position.y, img);
             ctx.strokeStyle = clientData[i].moto;
             ctx.stroke();
         });
     }
+
     /* Permet de modifier la direction de l'image de la moto*/
-    function drawRotated(direction, x, y, img){
+    function drawRotated(direction, x, y, img) {
         var degres = 0;
-        switch(direction) {
+        switch (direction) {
             case "W":
                 degres = 180;
                 break;
@@ -203,20 +206,21 @@ $(document).ready(function() {
             case "S":
                 degres = 90;
                 break;
-            default: degres = 0;
+            default:
+                degres = 0;
         }
-        img.onload = function() {
+        img.onload = function () {
             ctx.save();
-            var rad = degres*Math.PI/180;
+            var rad = degres * Math.PI / 180;
             //ctx.drawImage(img, x,y-img.height/2);  //Image de base
             ctx.translate(x, y);
             ctx.rotate(rad);
-            ctx.drawImage(img, 0,-img.height/2);
+            ctx.drawImage(img, 0, -img.height / 2);
             ctx.restore();
         };
     }
 
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
-
+});
 })(jQuery);
