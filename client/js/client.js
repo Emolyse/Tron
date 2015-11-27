@@ -132,7 +132,6 @@ $(document).ready(function() {
     document.addEventListener('keyup', function (evt) {
         if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
             var key = evt.which;
-            console.log(key);
             var direction = "";
             if(key == 37){
                 direction = "w";
@@ -146,7 +145,6 @@ $(document).ready(function() {
             if(key == 40){
                 direction = "s";
             }
-
             var data = {joueur: joueur.pseudo, direction: direction};
             io.emit('changeDir', data, function (resp) {
                 console.log(resp);
