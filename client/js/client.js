@@ -129,7 +129,7 @@ $(document).ready(function() {
     /** Evénements du joueur **/
     document.addEventListener('keyup', function (evt) {
         if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
-            var data = {joueur: joueur, keycode: evt.which};
+            var data = {joueur: joueur, direction: evt.which};
             io.emit('changeDir', data, function (resp) {
                 console.log(resp);
             });
