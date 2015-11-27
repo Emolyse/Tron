@@ -35,7 +35,7 @@ var serverData = {
 //Connexion au serveur : On fournit le client
 app.get('/', function (req,res) {res.sendfile("client/index.html");});
 //On route tous les fichiers clients nécessaires
-app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile("client/"+req.params[0]);});
+app.get('/client/*', function (req,res) {res.sendfile("client/"+req.params[0]);});
 
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -43,10 +43,11 @@ app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile
 ////////////    LOGIN   /////////////////
 
 // Route pour l'identification du joueur sur le server
-app.io.route('login', function (req) {
-	req.io.respond({
+app.io.route('newclient', function (req) {
+	console.log("newclient");
+    req.io.respond({
         res:true,
-        motos_available:serverData.motos_available
+        availableMotos:serverData.motos_available
     });
 });
 
