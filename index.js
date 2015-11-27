@@ -9,16 +9,18 @@ var nbPlayer;
 var isPlaying = false;
 var clientData = {
     //Cette liste permet de naviguer dans clientData
-    "list":["Loxy"],
+    list:["Loxy"],
     //On retrouve ensuite les 0 à 10 clients du plateau
-    "Loxy" :{
-        position  :{//Position de la moto du joueur ( pos du svg du client)
-            x:-1,
-            y:-1
-        },
-        direction : 'X',//Direction courante dans laquelle se dirige le joueur
-        moto      : '-1',//Le couleur de la moto choisie
-        path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+    players:{
+        "Loxy" :{
+            position  :{//Position de la moto du joueur ( pos du svg du client)
+                x:-1,
+                y:-1
+            },
+            direction : 'X',//Direction courante dans laquelle se dirige le joueur
+            moto      : '-1',//Le couleur de la moto choisie
+            path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+        }
     }
 };
 
@@ -38,19 +40,45 @@ app.get('/', function (req,res) {res.sendfile("client/index.html");});
 app.get('/client/*', function (req,res) {res.sendfile("client/"+req.params[0]);});
 
 /****************************************
+ *          Functions Server            *
+ ****************************************/
+function isAvailablePseudo (pseudo) {
+    if(!pseudo){
+        return false;
+    }
+    for(var p in clientData.list){
+        console.log(clientData.list[p]);
+        if(clientData.list[p]==pseudo){
+            console.log(p);
+            return false;
+        }
+    }
+    return true;
+ } 
+
+/****************************************
  *       DIALOGUE Client/Server         *
  ****************************************/
 ////////////    LOGIN   /////////////////
 
 // Route pour l'identification du joueur sur le server
 app.io.route('newclient', function (req) {
-	console.log("newclient");
+	console.log(64,req.data.pseudo);
     req.io.respond({
         res:true,
-        availableMotos:serverData.motos_available
+        availableMotos:serverData.motos_available,
+        availablePseudo:isAvailablePseudo(req.data.pseudo)
     });
 });
 
+app.io.route('availablePseudo', function (req) {
+    var resp = {res:isAvailablePseudo(req.data)};
+    req.io.respond(resp);
+});
+
+app.io.route('login', function (req) {
+    req.io.respond({res:true});
+})
 
 ////////////    INGAME   /////////////////
 // On récupère une action pour la donner aux autres

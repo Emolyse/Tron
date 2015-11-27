@@ -29,17 +29,21 @@ html, body{
     top: 0;
     left: 0;
     background-color: rgba(0, 0, 0, 0.8);
+    
 }
-.overlay>*{
+.overlay>.container{
+    display: flex;
+    flex-flow:column nowrap;
+    justify-content:center;
+}
+.overlay>*, .overlay>.container>*{
     align-self:center;
 }
+.overlay>.container>*{
+    width: 400px;
+}
 #formLogin{
-    position: absolute;
-    width: 50%;
-    max-width: 400px;
-    left: 50%;
-    top: 50%;
-    transform: translate3D(-50%, -50%, 0);
+    margin-top: 20px;
 }
 #formLogin .inputForm{
     background-color: #ffffff;
@@ -60,4 +64,22 @@ html, body{
     background-color: #FFA000;
     color: #ffffff;
     cursor: pointer;
+}
+#motoSelector {
+    display: flex;
+    flex-flow:row wrap;
+    justify-content:center;
+    margin:20px 0;
+}
+#motoSelector > img{
+    padding: 10px;
+    border:solid 2px transparent;
+    cursor: pointer;
+}
+#motoSelector > img.selected{
+    border-bottom:solid 2px #FFA000;
+    background-color: rgba(64,59,51,1);
+}
+#motoSelector > img:hover{
+    background-color: rgba(255,255,255,0.8);
 }

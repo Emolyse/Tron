@@ -11,11 +11,25 @@ var screenHeight = innerHeight;
 var screenWidth = innerWidth;
 var ctx;
 
+
+/*****************************
+ *        Event handlers     *
+ *****************************/
+ function motoSelector (target) {
+    console.log(target);
+    joueur.moto = $(target).data("motoId");
+    $("#motoSelector>img.selected").removeClass("selected");
+    $(target).addClass("selected");
+ }
+
+ // <<<<<<<<<<<<<<<<<<<<<<<<<<
+
 (function($) {
 $(document).ready(function() {
 
 	io = io.connect();
     io.emit("newclient",joueur, function (resp) {
+        console.log(resp);
         loadLoginOverlay(resp);
     });
 
@@ -27,7 +41,9 @@ $(document).ready(function() {
         //On créé la sélection de motos disponibles
         var motoElements = "";
         for (var i = 0; i < loginData.availableMotos.length; i++) {
-            motoElements += "<img src=" + motoPath + motosFiles[loginData.availableMotos[i]] + " data-moto-id=" + loginData.availableMotos[i] + ">";
+            motoElements += "<img src=" + motoPath + motosFiles[loginData.availableMotos[i]] +
+                            " data-moto-id=" + loginData.availableMotos[i] +
+                            " onclick=motoSelector(this)" + ">";
         }
         //On vérifie si le joueur a un pseudo disponible
         var pseudoElement;
@@ -35,14 +51,16 @@ $(document).ready(function() {
             pseudoElement = "<h1>Bonjour " + joueur.pseudo + " !</h1>";
         } else {
             joueur.pseudo = undefined;
-            pseudoElement = "<input id='pseudoLogin' type='text' name='pseudo' placeholder='Pseudo'>";
+            pseudoElement = "<input id='pseudoLogin' type='text' name='pseudo' pattern='[a-zA-Z][a-zA-Z0-9]+' placeholder='Pseudo' required>";
         }
         document.body.innerHTML += "" +
         "<div class='overlay'>" +
+        "<div class='container'>"+
+        "<img src='/client/img/logo.png'>"+
         "<div id='motoSelector'>" + motoElements + "</div>" +
         "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
         "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>" +
-        "</form></div>";
+        "</form></div></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
         io.on("motoUnvailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
@@ -51,11 +69,17 @@ $(document).ready(function() {
         //On effectue le traitement du clic sur Joueur
         $("#formLogin").submit(function (e) {
             e.preventDefault();
+            //Quand le joueur a choisi un nom et sélectionné une moto il peut se logguer
+            if (joueur.pseudo && joueur.moto) {
+                login();
+                if(callback)
+                    callback();
+            }
             if (!joueur.pseudo) {
                 var pseudo = document.login.children.pseudo.value;
                 //On vérifie si le pseudo est disponible si il est dispo le serveur le valide
-                io.emit('availablePseudo', joueur.pseudo, function (resp) {
-                    if (resp) {
+                io.emit('availablePseudo', pseudo, function (resp) {
+                    if (resp.res) {
                         localStorage.pseudo = pseudo;
                         joueur.pseudo = pseudo;
                         if (!joueur.moto) {
@@ -63,19 +87,20 @@ $(document).ready(function() {
                                 this.remove();
                                 $('#formLogin').prepend("<h1>Bonjour " + joueur.pseudo + " ! Choisis une moto.</h1>");
                             });
+                        } else {
+                            login();
+                            if(callback)
+                                callback();
                         }
                     } else {
                         //On affiche un message d'erreur demandant le choix du pseudo
+                        console.log("Please choose another pseudo");
                     }
                 });
             }
             if(!joueur.moto){
                 //On affiche un message d'erreur demandant la sélection d'une moto
-            }
-            //Quand le joueur a choisi un nom et sélectionné une moto il peut se logguer
-            if (joueur.pseudo && joueur.moto) {
-                login();
-                callback();
+                console.log("Please select a motorbike");
             }
         });
     }
@@ -93,9 +118,9 @@ $(document).ready(function() {
                 if (overlay.is(":visible")) {
                     overlay.animate({height: 0}, 400, null, overlay.remove);
                 }
-
             }
-            if (resp) {
+            if (resp.res) {
+                
                 var profil = $("<div id=profil>"
                 + "Bonjour " + joueur.pseudo
                 + "</div>");
