@@ -140,9 +140,6 @@ $(document).ready(function() {
         console.log('data : '+data);
     });
 
-    // Tableau de position des motos sur le client ET sur le serveur
-    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
-
     //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
     function drawPlayers(){
         var data = {
@@ -218,5 +215,8 @@ $(document).ready(function() {
             ctx.restore();
         };
     }
+
+    // Tableau de position des motos sur le client ET sur le serveur
+    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
 
 })(jQuery);
