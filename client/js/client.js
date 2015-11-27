@@ -21,64 +21,57 @@ var screenHeight = innerHeight;
 var screenWidth = innerWidth;
 var ctx;
 
-    if(!joueur) {
-        document.body.innerHTML += "" +
-        "<div class='overlay'><form class='formLogin' name='login' action='#'>" +
-        "<input type='text' name='pseudo' placeholder='Pseudo'><input name='submit' type='button' value='Jouer'/>" +
-        "</form></div>";
-    }
-
 (function($) {
-    console.log("je suis debile");
 $(document).ready(function() {
 
 	io = io.connect();
     io.emit("newclient",joueur, function (resp) {
         loadLoginOverlay(resp);
     });
+
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
     ////////////    LOGIN   /////////////////
-    function loadLoginOverlay(loginData,callback){
+    function loadLoginOverlay(loginData, callback) {
         //On créé la sélection de motos disponibles
-        var motoElements="";
-        for(var i=0;i<loginData.availableMotos.length;i++){
-            motoElements+="<img src="+motoPath+motosFiles[loginData.availableMotos[i]]+" data-moto-id="+loginData.availableMotos[i]+">";
+        var motoElements = "";
+        for (var i = 0; i < loginData.availableMotos.length; i++) {
+            motoElements += "<img src=" + motoPath + motosFiles[loginData.availableMotos[i]] + " data-moto-id=" + loginData.availableMotos[i] + ">";
         }
         //On vérifie si le joueur a un pseudo disponible
         var pseudoElement;
-        if(loginData.availablePseudo){
-            pseudoElement = "<h1>Bonjour "+joueur.pseudo+" !</h1>";
+        if (loginData.availablePseudo) {
+            pseudoElement = "<h1>Bonjour " + joueur.pseudo + " !</h1>";
         } else {
             joueur.pseudo = undefined;
             pseudoElement = "<input id='pseudoLogin' type='text' name='pseudo' placeholder='Pseudo'>";
         }
-        document.body.innerHTML +=
-            "<div class='overlay'>" +
-            "<div id='motoSelector'>"+motoElements+"</div>"+
-            "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
-            "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>"+
-            "</form></div>";
+        document.body.innerHTML += "" +
+        "<div class='overlay'>" +
+        "<div id='motoSelector'>" + motoElements + "</div>" +
+        "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
+        "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>" +
+        "</form></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
         io.on("motoUnvailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
         });
 
         //On effectue le traitement du clic sur Joueur
-        $("#formLogin").submit(function(e) {
+        $("#formLogin").submit(function (e) {
             e.preventDefault();
-            if(!joueur.pseudo) {
+            if (!joueur.pseudo) {
                 var pseudo = document.login.children.pseudo.value;
                 //On vérifie si le pseudo est disponible si il est dispo le serveur le valide
-                io.emit('availablePseudo',joueur.pseudo, function (resp) {
-                    if(resp){
+                io.emit('availablePseudo', joueur.pseudo, function (resp) {
+                    if (resp) {
                         localStorage.pseudo = pseudo;
                         joueur.pseudo = pseudo;
-                        if(!joueur.moto){
+                        if (!joueur.moto) {
                             $('#pseudoLogin').fadeOut("fast", function () {
                                 this.remove();
-                                $('#formLogin').prepend("<h1>Bonjour "+joueur.pseudo+" ! Choisis une moto.</h1>");
+                                $('#formLogin').prepend("<h1>Bonjour " + joueur.pseudo + " ! Choisis une moto.</h1>");
                             });
                         }
                     } else {
@@ -90,7 +83,7 @@ $(document).ready(function() {
                 //On affiche un message d'erreur demandant la sélection d'une moto
             }
             //Quand le joueur a choisi un nom et sélectionné une moto il peut se logguer
-            if(joueur.pseudo && joueur.moto){
+            if (joueur.pseudo && joueur.moto) {
                 login();
                 callback();
             }
@@ -98,28 +91,28 @@ $(document).ready(function() {
     }
 
 
-	/** Démarrage de Tron **/
-	function login () {
+    /** Démarrage de Tron **/
+    function login() {
         //Une fois les données reccueillie on signal au serveur que notre profil peut etre créé
-	    io.emit("login",joueur,function(resp) {
-            if(resp.error){//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
+        io.emit("login", joueur, function (resp) {
+            if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
 
-            }else{
+            } else {
                 //On fait disparaitre l'overlay
-			    var overlay = $("div.overlay");
-                if(overlay.is(":visible")){
-                    overlay.animate({height:0},400,null, overlay.remove);
+                var overlay = $("div.overlay");
+                if (overlay.is(":visible")) {
+                    overlay.animate({height: 0}, 400, null, overlay.remove);
                 }
 
             }
-			if(resp){
-				var profil = $("<div id=profil>"
-					+"Bonjour "+joueur.pseudo
-					+"</div>");
-				$("body").append(profil);
-			}
-	    });
-	}
+            if (resp) {
+                var profil = $("<div id=profil>"
+                + "Bonjour " + joueur.pseudo
+                + "</div>");
+                $("body").append(profil);
+            }
+        });
+    }
 
 
     ////////////    INIT GAME ////////////////
@@ -135,30 +128,20 @@ $(document).ready(function() {
 
 
     ////////////    INGAME   /////////////////
-    document.addEventListener('keyup', function(e) {
-        if ((e.keyCode || e.which) == 38) {
-            console.log("haut");
-            direction("haut");
+    /** Evénements du joueur **/
+    document.addEventListener('keyup', function (evt) {
+        if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
+            var data = {joueur: joueur, direction: evt.which};
+            io.emit('changeDir', data, function (resp) {
+                console.log(resp);
+            });
         }
-        if ((e.keyCode || e.which) == 40) {
-            console.log("bas");
-            direction("bas");
-        }
-        if ((e.keyCode || e.which) == 39) {
-            console.log("droite");
-            direction("droite");
-        }
-        if ((e.keyCode || e.which) == 37) {
-            console.log("gauche");
-            direction("gauche");
-        }
-    }, true);
+    });
 
-    function direction(dir){
-
-        io.emit("direction",joueur,function(resp) {
-        });
-    }
+    /** Récupération des infos d'un joueur **/
+    io.on('changeDir', function (data) {
+        console.log('data : ' + data);
+    });
 
     //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
     function drawPlayers(){

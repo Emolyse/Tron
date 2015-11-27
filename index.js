@@ -9,16 +9,18 @@ var nbPlayer;
 var isPlaying = false;
 var clientData = {
     //Cette liste permet de naviguer dans clientData
-    "list":["Loxy"],
+    list:["Loxy"],
     //On retrouve ensuite les 0 à 10 clients du plateau
-    "Loxy" :{
-        position  :{//Position de la moto du joueur ( pos du svg du client)
-            x:-1,
-            y:-1
-        },
-        direction : 'X',//Direction courante dans laquelle se dirige le joueur
-        moto      : '-1',//Le couleur de la moto choisie
-        path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+    players :{
+        Loxy :{
+            position  :{//Position de la moto du joueur ( pos du svg du client)
+                x:-1,
+                y:-1
+            },
+            direction : 'X',//Direction courante dans laquelle se dirige le joueur x : initialisation, n : north, s : south, e : east, w : west
+            moto      : '-1',//Le couleur de la moto choisie
+            path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+        }
     }
 };
 
@@ -35,7 +37,7 @@ var serverData = {
 //Connexion au serveur : On fournit le client
 app.get('/', function (req,res) {res.sendfile("client/index.html");});
 //On route tous les fichiers clients nécessaires
-app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile("client/"+req.params[0]);});
+app.get('/client/*', function (req,res) {res.sendfile("client/"+req.params[0]);});
 
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -43,22 +45,25 @@ app.get('/client/*', function (req,res) {console.log(req.params[0]);res.sendfile
 ////////////    LOGIN   /////////////////
 
 // Route pour l'identification du joueur sur le server
-app.io.route('login', function (req) {
-	req.io.respond({
+app.io.route('newclient', function (req) {
+	console.log("newclient");
+    req.io.respond({
         res:true,
-        motos_available:serverData.motos_available
+        availableMotos:serverData.motos_available
     });
 });
 
 
 ////////////    INGAME   /////////////////
-app.io.route('changeDir', function(req){
-    // req contient l'id du joueur et la nouvelle direction
-});
-
 // On récupère une action pour la donner aux autres
-app.io.route('direction', function(req) {
-    req.io.respond("Action d'un autre joueur : "+req.data);
+app.io.route('changeDir', function(req){
+    var loginJoueur = req.data.joueur;
+    var directionJoueur = req.data.direction;
+    console.log("directionJoueur : "+directionJoueur);
+    //clientData.players[loginJoueur].direction = directionJoueur;
+    console.log("clientdata : "+clientData);
+    // req contient l'id du joueur et la nouvelle direction
+    req.io.broadcast("changeDir", "Action du joueur "+req.data.joueur+" : "+req.data.direction); // envoie aux autres client des infos du joueur
 });
 
 app.listen(3001, function () {
