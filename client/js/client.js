@@ -3,16 +3,16 @@ var joueur = {
 };
 var motoPath = '/client/img/motos/moto_';
 var motos = {
-    "blue": {file: "blue.png", color: "blue"},
-    "green":{file: "green.png", color:"green"},
-    "greenblue":{file: "greenblue.png", color:"greenblue"},
-    "greyblue":{file: "greyblue.png", color:"greyblue"},
-    "orange":{file: "orange.png", color:"orange"},
-    "pink":{file: "pink.png", color:"pink"},
-    "purple":{file: "purple.png", color:"purple"},
-    "red":{file: "red.png", color:"red"},
-    "violet":{file: "violet.png", color:"violet"},
-    "yellow":{file: "yellow.png", color:"yellow"}
+    blue        :{file: "blue.png", color: "blue"},
+    green       :{file: "green.png", color:"green"},
+    greenblue   :{file: "greenblue.png", color:"greenblue"},
+    greyblue    :{file: "greyblue.png", color:"greyblue"},
+    orange      :{file: "orange.png", color:"orange"},
+    pink        :{file: "pink.png", color:"pink"},
+    purple      :{file: "purple.png", color:"purple"},
+    red         :{file: "red.png", color:"red"},
+    violet      :{file: "violet.png", color:"violet"},
+    yellow      :{file: "yellow.png", color:"yellow"}
 };
 var playersData;
 
@@ -26,12 +26,18 @@ var ctx;
  *        Event handlers     *
  *****************************/
  function motoSelector (target) {
-    console.log(target);
     joueur.moto = $(target).data("motoId");
     $("#motoSelector>img.selected").removeClass("selected");
     $(target).addClass("selected");
  }
 
+function setInvalidInputMsg(e,msg) {
+    if (e.value.search(new RegExp(input.getAttribute('pattern'))) >= 0) {
+        e.setCustomValidity('');
+    } else {
+        e.setCustomValidity(msg);
+    }
+}
  // <<<<<<<<<<<<<<<<<<<<<<<<<<
 
 (function($) {
@@ -39,10 +45,11 @@ $(document).ready(function() {
 
 	io = io.connect();
     io.emit("newclient",joueur, function (resp) {
-        console.log(resp);
         loadLoginOverlay(resp);
     });
-
+    $(window).unload(function () {
+        io.emit("rmclient",joueur);
+    });
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
@@ -51,7 +58,8 @@ $(document).ready(function() {
         //On créé la sélection de motos disponibles
         var motoElements = "";
         for (var i = 0; i < loginData.availableMotos.length; i++) {
-            motoElements += "<img src=" + motoPath + motosFiles[loginData.availableMotos[i]] +
+            motoElements += "<img src=" + motoPath + motos[loginData.availableMotos[i]].file +
+                            " id='loginMoto"+loginData.availableMotos[i] + "'" +
                             " data-moto-id=" + loginData.availableMotos[i] +
                             " onclick=motoSelector(this)" + ">";
         }
@@ -69,11 +77,12 @@ $(document).ready(function() {
         "<img src='/client/img/logo.png'>"+
         "<div id='motoSelector'>" + motoElements + "</div>" +
         "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
-        "<input id='loginBTN' name='submit' type='submit' value='Jouer'/>" +
+        "<input id='loginBTN' name='submit' type='submit' value='Jouer' />" +
         "</form></div></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
         io.on("motoUnvailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
+            $("#loginMoto"+data.moto).remove();
         });
 
         //On effectue le traitement du clic sur Joueur
@@ -88,7 +97,7 @@ $(document).ready(function() {
             if (!joueur.pseudo) {
                 var pseudo = document.login.children.pseudo.value;
                 //On vérifie si le pseudo est disponible si il est dispo le serveur le valide
-                io.emit('availablePseudo', pseudo, function (resp) {
+                io.emit('availablePseudo', {pseudo:pseudo}, function (resp) {
                     if (resp.res) {
                         localStorage.pseudo = pseudo;
                         joueur.pseudo = pseudo;
@@ -105,12 +114,14 @@ $(document).ready(function() {
                     } else {
                         //On affiche un message d'erreur demandant le choix du pseudo
                         console.log("Please choose another pseudo");
+                        alert("Ce pseudo n'est pas disponnible");
                     }
                 });
             }
             if(!joueur.moto){
                 //On affiche un message d'erreur demandant la sélection d'une moto
                 console.log("Please select a motorbike");
+                alert("Sélectionnez une moto !")
             }
         });
     }
@@ -123,6 +134,7 @@ $(document).ready(function() {
             if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
 
             } else {
+                io.removeListener('motoUnvailable');
                 //On fait disparaitre l'overlay
                 var overlay = $("div.overlay");
                 if (overlay.is(":visible")) {
