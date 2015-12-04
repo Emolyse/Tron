@@ -2,9 +2,11 @@ var express = require('express.io');
 var app = express();
 app.http().io();
 
-//app.use(express.cookieParser());
-//app.use(express.session({secret:'emolyse secret_key'}));
-
+/**
+ * @global clientData
+ * @description C'est l'objet contenant toutes les informations nécessaires au client à chaque itération du jeu
+ * @type {{list: Array, pathLength: Array, players: {}}}
+ */
 var clientData = {
     //Cette liste permet de naviguer dans clientData
     list:[],
@@ -15,6 +17,11 @@ var clientData = {
     }
 };
 
+/**
+ * @global serverData
+ * @description Données nécessaire au fonctionnement du serveur
+ * @type {{playing: boolean, capacity: number, pas: number, pathLength: number, motoSize: {w: number, l: number}, motos_available: string[], initial_position: string[], waitingRoom: Array, pseudoMap: {}, iteration}}
+ */
 var serverData = {
     playing         : false,
     capacity        : 10,
@@ -35,14 +42,27 @@ var serverData = {
  *          Routage Client              *
  ****************************************/
 
-//Connexion au serveur : On fournit le client
+/**
+ * @mapping '/'
+ * @description Lorsque le joueur se connecte à la racine du serveur on fournit le client
+ */
 app.get('/', function (req,res) {res.sendfile("client/index.html");});
-//On route tous les fichiers clients nécessaires
+/**
+ * @mapping '/client/*'
+ * @description On route tous les fichiers nécessaires au client
+ * @param filePath Chemin du fichier voulu
+ */
 app.get('/client/*', function (req,res) {res.sendfile("client/"+req.params[0]);});
 
 /****************************************
  *          Functions Server            *
  ****************************************/
+/**
+ * @name isAvailablePseudo
+ * @description Indique si le pseudo est disponible
+ * @param {String} pseudo Identifiant du client
+ * @returns {boolean} if pseudo is available or not
+ */
 function isAvailablePseudo (pseudo) {
     if(!pseudo){
         return false;
@@ -53,13 +73,27 @@ function isAvailablePseudo (pseudo) {
         }
     }
     return true;
- } 
+ }
+
+/**
+ * @name createPlayer
+ * @description On crée un objet corrspondant au player sur le serveur (clientData.players)
+ * @param player L'objet contenant pseudo et moto
+ * @param socketId The id of the player'socket
+ */
 function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
     clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[{}]};
     console.log("Create",player.pseudo,socketId,clientData.list);
 }
+
+/**
+ * @name initPlayer
+ * @description On indique la moto choisit par le joueur dans l'objet serveur correspondant
+ * @param player L'objet contenant pseudo et moto
+ * @returns {boolean} indiquant si la moto a pu être choisie
+ */
 function initPlayer(player){
     for(var i=0;i<serverData.motos_available.length;i++){
         if(serverData.motos_available[i]===player.moto){
@@ -70,6 +104,12 @@ function initPlayer(player){
     }
     return false;
 }
+
+/**
+ * @name removePlayer
+ * @description Supprime le joueur de la clientData.list, de clientData.players et de la waiting room
+ * @param pseudo Identifiant du joueur
+ */
 function removePlayer(pseudo){
     //On empeche un client malhonnete de
     if(pseudo){
@@ -93,15 +133,24 @@ function removePlayer(pseudo){
             if(serverData.waitingRoom[p]==pseudo){
                 serverData.waitingRoom.splice(p,1);
             }
-
         }
     }
 }
-
+/**
+ * @name initGame
+ * @description On initialise les positions et directions de chaque joueur
+ */
 function initGame () {
     for(var p in clientData.players){
     }
 }
+
+/**
+ * @name iteration
+ * @description La fonction itération incrémente toutes les clientData.players[player].position déplaçant ainsi chaque
+ * moto. Elle ajoute aussi le premier point de à chaque trace clientData.players[player].path
+ * @param callback
+ */
 function iteration(callback){
     for(var p in clientData.players){
         console.log(p);
@@ -137,6 +186,17 @@ function iteration(callback){
  *       DIALOGUE Client/Server         *
  ****************************************/
 ////////////    LOGIN   /////////////////
+/**
+ * @route newclient
+ * @description Lors de la première connexion d'un client on vérifie si son ancien pseudo (si existant) est toujours
+ * disponible si oui on l'enregistre et on crée un profil joueur
+ * @request {Object} player > {String} pseudo Identifiant du client
+ * @response {Object}
+ *      > {boolean} res
+ *      > {Array} availableMotos Le tableau des motos disponible
+ *      > {boolean} availablePseudo Si le pseudo est disponible ou non
+ * @response {boolean} res
+ */
 app.io.route('newclient', function (req) {
 	var available = isAvailablePseudo(req.data.pseudo);
     if(available){
@@ -147,10 +207,20 @@ app.io.route('newclient', function (req) {
         availableMotos:serverData.motos_available,
         availablePseudo:available
     });
-});// Route pour l'identification du joueur sur le server
+});
+/**
+ * @route rmclient
+ * @description Quand un client quitte l'application on supprime l'intégralité des ses données présentent sur le serveur
+ */
 app.io.route('rmclient', function (req) {
     removePlayer(serverData.pseudoMap[req.socket.id]);
-});//Quand un client quitte la partie
+});
+/**
+ * @route availablePseudo
+ * @description Lorsqu'un client demande si un pseudo est disponible, si oui on lui réserve en l'ajoutant à clientData.list
+ * @request {Object} player > {String} pseudo Identifiant du client
+ * @response {Object} > {boolean} res Si le pseudo est disponible
+ */
 app.io.route('availablePseudo', function (req) {
     var available = isAvailablePseudo(req.data.pseudo);
     if(available){
@@ -158,7 +228,17 @@ app.io.route('availablePseudo', function (req) {
     }
     req.io.respond({res:available});
 });// Lorsqu'un client demande si un pseudo est dispo, si oui on lui réserve
-app.io.route('login', function (req) {// Lorque le client a choisi un pseudo et une moto disponibles on cré son profil
+/**
+ * @route login
+ * @description Lorque le client a choisi un pseudo et une moto disponibles on finalise son profil sur le serveur
+ * @request {Object} player Profil du client
+ *      > {String} pseudo Identifiant du client
+ *      > {String} moto Moto sélectionnée par le client
+ * @response {Object}
+ *      > {boolean} res Si l'initialisation est réussie ou non
+ *      > {String} error Message d'une erreure éventuelle
+ */
+app.io.route('login', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         var resp = {res: initPlayer(req.data)};
         if (!resp.res) {
@@ -180,7 +260,13 @@ app.io.route('login', function (req) {// Lorque le client a choisi un pseudo et 
 });
 
 ////////////    INGAME   /////////////////
-// On récupère une action pour la donner aux autres
+/**
+ * @route changeDir
+ * @description Cette route écoute chaque changement de direction des clients joueur. Elle modifie ainsi
+ * @request {Object}
+ *      > {String} pseudo Identifiant du client
+ *      > {char} direction Nouvelle direction du client
+ */
 app.io.route('changeDir', function(req){
     //On vérifie que le client est le bon et qu'il n'a pas changé son pseudo via la console
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
