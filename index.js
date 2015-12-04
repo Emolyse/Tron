@@ -7,7 +7,7 @@ app.http().io();
 
 var clientData = {
     //Cette liste permet de naviguer dans clientData
-    list:["Machin"],
+    list:[],
     //On retrouve ensuite les 0 à 10 clients du plateau
     players :{
         /*
@@ -157,11 +157,11 @@ app.io.route('login', function (req) {// Lorque le client a choisi un pseudo et 
 app.io.route('changeDir', function(req){
     //On vérifie que le client est le bon et qu'il n'a pas changé son pseudo via la console
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
-        var loginJoueur = req.data.joueur;
+        var loginJoueur = req.data.pseudo;
         var directionJoueur = req.data.direction;
         clientData.players[loginJoueur].direction = directionJoueur;
         // req contient l'id du joueur et la nouvelle direction
-        req.io.broadcast("changeDir", "Action du joueur " + req.data.joueur + " : " + req.data.direction); // envoie aux autres client des infos du joueur
+        //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie aux autres client des infos du joueur
     }
 });
 
