@@ -7,28 +7,25 @@ app.http().io();
 
 var clientData = {
     //Cette liste permet de naviguer dans clientData
-    list:["Machin"],
+    list:[],
+    //Longueur de la trainée
+    pathLength:[],
     //On retrouve ensuite les 0 à 10 clients du plateau
     players :{
-        /*
-        Machin :{
-            position  :{//Position de la moto du joueur ( pos du svg du client)
-                x:-1,
-                y:-1
-            },
-            direction : 'X',//Direction courante dans laquelle se dirige le joueur x : initialisation, n : north, s : south, e : east, w : west
-            moto      : 'blue',//Le couleur de la moto choisie
-            path      :[{}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-        }*/
     }
 };
 
 var serverData = {
     playing         : false,
     capacity        : 10,
-    pas             : 0.01,
-    motos_available :["green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[],//tableau de position x/y pour chaque couleur de moto
+    pas             : 0.005,
+    pathLength      : 100,
+    motoSize        : {
+        w : 0.0157,
+        l : 0.0234
+    }
+    motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
+    initial_position:["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     pseudoMap       : {},//On associe chaque pseudo à son sessionid
     iteration       : iteration()
@@ -101,14 +98,40 @@ function removePlayer(pseudo){
     }
 }
 
-function iterate(player){
-
+function initGame () {
+    for(var p in clientData.players){
+    }
 }
-function iteration(){
+function iteration(callback){
     for(var p in clientData.players){
         console.log(p);
-        iterate(clientData.players[p]);
+
+        //On transforme ce switch en fonction setMove(player,pas)
+        //pour changeDir pas = motoSize.l + motoSize.w/2
+        var player = clientData.players[p];
+        var pasX = 0, pasY = 0;
+        switch(player.direction){
+            case "n":
+                player.position.y = -serverData.pas;
+                player.path.push({x:path.lastChild.x,x:path.lastChild.y-serverData.pas});
+                break;
+            case "e":
+                player.position.x = serverData.pas;
+                player.path.push({x:path.lastChild.x+serverData.pas,x:path.lastChild.y});
+                break;
+            case "s":
+                player.position.y = serverData.pas;
+                player.path.push({x:path.lastChild.x,x:path.lastChild.y+serverData.pas});
+                break;
+            case "w":
+                player.position.x = -serverData.pas;
+                player.path.push({x:path.lastChild.x-serverData.pas,x:path.lastChild.y});
+                break;
+        }
+        //
     }
+    if(callback)
+        callback();
 }
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -144,8 +167,12 @@ app.io.route('login', function (req) {// Lorque le client a choisi un pseudo et 
         else app.io.broadcast('motoUnvailable', req.data);
         req.io.respond(resp);
 
-        if(serverData.capacity-1>serverData.motos_available.length){//On a au moins 2 joueurs on peut commencer une partie
-            iteration();
+        if(serverData.capacity-1>serverData.motos_available.length && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie
+            initGame(function(){
+                setInterval(function () {
+                    iteration();
+                },25);
+            });
         } else {
             serverData.waitingRoom.push(req.data.pseudo);
         }
