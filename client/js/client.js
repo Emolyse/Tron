@@ -136,32 +136,30 @@ $(document).ready(function() {
             } else {
                 io.removeListener('motoUnvailable');
                 //On fait disparaitre l'overlay
-                var overlay = $("div.overlay");
-                if (overlay.is(":visible")) {
-                    overlay.animate({height: 0}, 400, null, overlay.remove);
+                var $overlay = $("div.overlay");
+                if ($overlay.is(":visible")) {
+                    $overlay.animate({height: 0}, 400, null, function () {
+                        $overlay.remove();
+                        loadGame();
+                    });
                 }
-            }
-            if (resp.res) {
-                
-                var profil = $("<div id=profil>"
-                + "Bonjour " + joueur.pseudo
-                + "</div>");
-                $("body").append(profil);
             }
         });
     }
 
 
     ////////////    INIT GAME ////////////////
-    $("body").append('<canvas id="tronCanvas" height="'+screenHeight+'" width="'+screenWidth+'"> </canvas>');
-    var $canvas = $("#tronCanvas");
-    var canvas = $canvas[0];
-    canvas.width = screenWidth;
-    canvas.height = screenHeight;
-    canvas.style.background="#f2f2f2";
-    ctx = canvas.getContext("2d");
-    ctx.lineWidth = 5;
-    drawPlayers();
+    function loadGame(){
+        var canvas = document.createElement("canvas");
+        canvas.id = "tronCanvas";
+        document.body.appendChild(canvas);
+        canvas.width = screenWidth;
+        canvas.height = screenHeight;
+        canvas.style.background = "#f2f2f2";
+        ctx = canvas.getContext("2d");
+        ctx.lineWidth = 5;
+        drawPlayers();
+    }
 
 
     ////////////    INGAME   /////////////////

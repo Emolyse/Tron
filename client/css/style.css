@@ -18,6 +18,10 @@ menu, nav, section, summary {
 html, body{
     font-family: 'Roboto', sans-serif;
 }
+
+/****************************
+ *          LOGIN           *
+ ***************************/
 .overlay{
     position: fixed;
     display: flex;
@@ -89,4 +93,14 @@ html, body{
     text-align: center;
     color: #ffffff;
     font-size: 1.5em;
+}
+
+
+/****************************
+ *          CANVAS          *
+ ***************************/
+#tronCanvas{
+    position: absolute;
+    top:0;
+    left: 0;
 }
