@@ -14,12 +14,32 @@ var motos = {
     violet      :{file: "violet.png", color:"violet"},
     yellow      :{file: "yellow.png", color:"yellow"}
 };
-var playersData;
+
+var playersData = {
+    "list": ["Loxy", "proxy"],
+    //Cette liste permet de naviguer dans clientData
+    //On retrouve ensuite les 0 à 10 clients du plateau
+    "players": {
+        "Loxy": {
+            position: {x: 0.15, y: 0.10},//Position de la moto du joueur ( pos du svg du client)
+            direction: 'E',//Direction courante dans laquelle se dirige le joueur
+            moto: "blue",//Le couleur de la moto choisie
+            paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}]
+            //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+        },
+
+        "proxy": {
+            position: {x: 200, y: 100},//Position de la moto du joueur ( pos du svg du client)
+            direction: 'W',//Direction courante dans laquelle se dirige le joueur
+            moto: "red",//Le couleur de la moto choisie
+            paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.10}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+        }
+    }
+};
 
 /* Variables de l'initialisation du canvas */
-var screenHeight = innerHeight;
-var screenWidth = innerWidth;
 var ctx;
+var canvas;
 
 
 /*****************************
@@ -150,15 +170,16 @@ $(document).ready(function() {
 
     ////////////    INIT GAME ////////////////
     function loadGame(){
-        var canvas = document.createElement("canvas");
+        canvas = document.createElement("canvas");
         canvas.id = "tronCanvas";
+        canvas.style.display = "absolute";
         document.body.appendChild(canvas);
-        canvas.width = screenWidth;
-        canvas.height = screenHeight;
+        canvas.width = innerWidth;
+        canvas.height = innerHeight;
         canvas.style.background = "#f2f2f2";
         ctx = canvas.getContext("2d");
-        ctx.lineWidth = 5;
-        drawPlayers();
+        var deNormalizedPlayersData = deNormalize(playersData);
+        drawPlayers(deNormalizedPlayersData);
     }
 
 
@@ -192,29 +213,24 @@ $(document).ready(function() {
         console.log('data : ' + data);
     });
 
-    //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
-    function drawPlayers(){
-        var data = {
-            "list":["Loxy","proxy"],
-            //Cette liste permet de naviguer dans clientData
-            //On retrouve ensuite les 0 à 10 clients du plateau
-            "players" : {
-                    "Loxy": {
-                        position: {x: 400, y: 400},//Position de la moto du joueur ( pos du svg du client)
-                        direction: 'E',//Direction courante dans laquelle se dirige le joueur
-                        moto: "blue",//Le couleur de la moto choisie
-                        paths: [{x: 50, y: 400}, {x: 400, y: 400}]
-                        //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                    },
+    //Adapter les données à notre écran
 
-                    "proxy": {
-                        position: {x: 200, y: 100},//Position de la moto du joueur ( pos du svg du client)
-                        direction: 'W',//Direction courante dans laquelle se dirige le joueur
-                        moto: "red",//Le couleur de la moto choisie
-                        paths: [{x: 800, y: 500}, {x: 500, y: 500}, {x: 500, y: 100}, {x: 200, y: 100}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-                    }
-            }
-        };
+    function deNormalize(data){
+        var playersData = jQuery.extend(true, {}, data);
+        $.each(playersData.players, function(i) {
+            playersData.players[i].position.x *= innerWidth;
+            playersData.players[i].position.y *= innerHeight;
+            $.each(playersData.players[i].paths, function(j){
+                playersData.players[i].paths[j].x *= innerHeight;
+                playersData.players[i].paths[j].y *= innerWidth;
+            });
+        });
+        return playersData;
+    }
+
+    //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
+    function drawPlayers(data){
+
         var players = data.players;
         $.each(players, function(i) {
             var color = motos[players[i].moto].color;
@@ -228,6 +244,7 @@ $(document).ready(function() {
             img.src = motoPath+motos[players[i].moto].file;
             drawRotated(players[i].direction,players[i].position.x,players[i].position.y,img);
             ctx.strokeStyle = players[i].moto;
+            ctx.lineWidth = 5;
             ctx.stroke();
         });
     }
@@ -256,6 +273,16 @@ $(document).ready(function() {
             ctx.restore();
         };
     }
+
+    /*
+        Redimentionne le canvas quand la taille de la fenêtre change
+     */
+    $( window ).resize(function() {
+        canvas.height = innerHeight;
+        canvas.width = innerWidth;
+        var deNormalizeData = deNormalize(playersData);
+        drawPlayers(deNormalizeData);
+    });
 
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
