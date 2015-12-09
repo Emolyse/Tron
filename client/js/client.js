@@ -21,21 +21,23 @@ var playersData = {
     //On retrouve ensuite les 0 à 10 clients du plateau
     "players": {
         "Loxy": {
-            position: {x: 0.15, y: 0.10},//Position de la moto du joueur ( pos du svg du client)
-            direction: 'E',//Direction courante dans laquelle se dirige le joueur
+            position: {x: 0.25, y: 0.10},//Position de la moto du joueur ( pos du svg du client)
+            direction: 'e',//Direction courante dans laquelle se dirige le joueur
             moto: "blue",//Le couleur de la moto choisie
-            paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}]
+            paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10}]
             //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
         },
 
         "proxy": {
-            position: {x: 200, y: 100},//Position de la moto du joueur ( pos du svg du client)
-            direction: 'W',//Direction courante dans laquelle se dirige le joueur
+            position: {x: 0.7, y: 0.05},//Position de la moto du joueur ( pos du svg du client)
+            direction: 'n',//Direction courante dans laquelle se dirige le joueur
             moto: "red",//Le couleur de la moto choisie
-            paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.10}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+            paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
         }
     }
 };
+/*Variable qui sert de test utilisée dans le redimentionnement de la fenêtre*/
+var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x: 0.25, y: 0.25}, direction: 's', moto: "blue", paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10},{x: 0.25, y: 0.25}]}, "proxy": {position: {x: 0.5, y: 0.05}, direction: 'w', moto: "red", paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}, {x: 0.5, y: 0.05}]}}};
 
 /* Variables de l'initialisation du canvas */
 var ctx;
@@ -168,6 +170,9 @@ $(document).ready(function() {
     }
 
 
+    /****************************************
+     *                  JEU                 *
+     ****************************************/
     ////////////    INIT GAME ////////////////
     function loadGame(){
         canvas = document.createElement("canvas");
@@ -176,9 +181,10 @@ $(document).ready(function() {
         document.body.appendChild(canvas);
         canvas.width = innerWidth;
         canvas.height = innerHeight;
-        canvas.style.background = "#f2f2f2";
+        canvas.style.background = "radial-gradient(#72CBD5, #013D4C)";
         ctx = canvas.getContext("2d");
         var deNormalizedPlayersData = deNormalize(playersData);
+        initMotos(deNormalizedPlayersData);
         drawPlayers(deNormalizedPlayersData);
     }
 
@@ -213,22 +219,24 @@ $(document).ready(function() {
         console.log('data : ' + data);
     });
 
-    //Adapter les données à notre écran
-
+    /*Adapter les données à notre écran*/
     function deNormalize(data){
         var playersData = jQuery.extend(true, {}, data);
         $.each(playersData.players, function(i) {
             playersData.players[i].position.x *= innerWidth;
             playersData.players[i].position.y *= innerHeight;
             $.each(playersData.players[i].paths, function(j){
-                playersData.players[i].paths[j].x *= innerHeight;
-                playersData.players[i].paths[j].y *= innerWidth;
+                playersData.players[i].paths[j].x *= innerWidth;
+                playersData.players[i].paths[j].y *= innerHeight;
             });
         });
         return playersData;
     }
 
-    //On parcours les donnees envoyees par le serveur pour dessiner les joueurs
+    /****************************************
+     *       DESSINS DES TRACES ET MOTOS    *
+     ****************************************/
+    /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
     function drawPlayers(data){
 
         var players = data.players;
@@ -240,49 +248,67 @@ $(document).ready(function() {
             $.each(paths, function(j){
                 ctx.lineTo(paths[j].x, paths[j].y);
             });
-            var img = new Image();
-            img.src = motoPath+motos[players[i].moto].file;
-            drawRotated(players[i].direction,players[i].position.x,players[i].position.y,img);
-            ctx.strokeStyle = players[i].moto;
+            drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
+            ctx.strokeStyle = motos[players[i].moto].color;
             ctx.lineWidth = 5;
             ctx.stroke();
         });
     }
-    /* Permet de modifier la direction de l'image de la moto*/
-    function drawRotated(direction, x, y, img){
+    /* Permet d'ajouter l'image de la moto*/
+    function drawMoto(x, y, moto, direction){
+        var currentmoto = $('#moto'+moto);
         var degres = 0;
         switch(direction) {
-            case "W":
-                degres = 180;
+            case "w":
+                    degres = 180;
                 break;
-            case "N":
-                degres = -90;
+            case "n":
+                    degres = -90;
                 break;
-            case "S":
+            case "e":
+                degres = 0;
+                break;
+            case "s":
                 degres = 90;
                 break;
             default: degres = 0;
         }
-        img.onload = function() {
-            ctx.save();
-            var rad = degres*Math.PI/180;
-            //ctx.drawImage(img, x,y-img.height/2);  //Image de base
-            ctx.translate(x, y);
-            ctx.rotate(rad);
-            ctx.drawImage(img, 0,-img.height/2);
-            ctx.restore();
-        };
+        var transX = x;
+        var transY = y - 7.5; // A MODIFIER (DEMI TAILLE DE LA MOTO QUI SERA CALCULEE)
+
+        currentmoto[0].style.transformOrigin="0% 50%";
+        currentmoto[0].style.transform="translate("+transX+"px,"+transY+"px)";
+        currentmoto[0].style.transform += "rotate("+degres+"deg)";
     }
 
-    /*
-        Redimentionne le canvas quand la taille de la fenêtre change
-     */
+
+
+    /****************************************
+     *       FONCTIONS UTILES               *
+     ****************************************/
+
+    /*Redimentionne le canvas quand la taille de la fenêtre change*/
     $( window ).resize(function() {
         canvas.height = innerHeight;
         canvas.width = innerWidth;
-        var deNormalizeData = deNormalize(playersData);
+        var deNormalizeData = deNormalize(playersData2);
         drawPlayers(deNormalizeData);
     });
+
+    /* Permet de charger toutes les motos en cours de jeu */
+    function initMotos(playersData){
+        $(".moto").remove();
+        $.each(playersData.players, function(i) {
+            var moto = playersData.players[i].moto;
+            var img = document.createElement("img");
+            img.src = motoPath+motos[moto].file;
+            img.style.position = "absolute";
+            img.title = "moto"+moto;
+            img.id = "moto"+moto;
+            document.body.appendChild(img);
+            var currentmoto = '#moto'+moto;
+        });
+    }
 
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
