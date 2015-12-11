@@ -162,8 +162,26 @@ app.io.route('changeDir', function(req){
         clientData.players[loginJoueur].direction = directionJoueur;
         // req contient l'id du joueur et la nouvelle direction
         //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie aux autres client des infos du joueur
+        console.log("clientData", clientData);
     }
 });
+
+// Détection de la collision sur les bords du canvas / de l'écran
+function collisionBordures(joueur){
+    if(joueur.position.y - motoSize.l > 1 && joueur.direction == "n"){
+        return true;
+    }
+    if(joueur.position.y + motoSize.l > 1 && joueur.direction == "s"){
+        return true;
+    }
+    if(joueur.position.x + motoSize.l > 1 && joueur.direction == "e"){
+        return true;
+    }
+    if(joueur.position.x - motoSize.l > 1 && joueur.direction == "w"){
+        return true;
+    }
+    return false;
+}
 
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
