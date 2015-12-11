@@ -15,7 +15,6 @@ var motos = {
     yellow      :{file: "yellow.png", color:"yellow"}
 };
 var playersData;
-
 /* Variables de l'initialisation du canvas */
 var screenHeight = innerHeight;
 var screenWidth = innerWidth;
@@ -180,7 +179,7 @@ $(document).ready(function() {
             if(key == 40){
                 direction = "s";
             }
-            var data = {joueur: joueur.pseudo, direction: direction};
+            var data = {pseudo: joueur.pseudo, direction: direction};
             io.emit('changeDir', data, function (resp) {
                 console.log(resp);
             });
@@ -200,10 +199,10 @@ $(document).ready(function() {
             //On retrouve ensuite les 0 à 10 clients du plateau
             "players" : {
                     "Loxy": {
-                        position: {x: 400, y: 400},//Position de la moto du joueur ( pos du svg du client)
+                        position: {x: 455, y: 400},//Position de la moto du joueur ( pos du svg du client)
                         direction: 'E',//Direction courante dans laquelle se dirige le joueur
                         moto: "blue",//Le couleur de la moto choisie
-                        paths: [{x: 50, y: 400}, {x: 400, y: 400}]
+                        paths: [{x: 50, y: 400}, {x: 500, y: 400}]
                         //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
                     },
 
@@ -256,8 +255,5 @@ $(document).ready(function() {
             ctx.restore();
         };
     }
-
-    // Tableau de position des motos sur le client ET sur le serveur
-    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
 });
 })(jQuery);
