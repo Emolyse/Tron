@@ -25,17 +25,21 @@ var clientData = {
 var serverData = {
     playing         : false,
     capacity        : 10,
-    pas             : 0.005,
+    pas             : 1,
+    gameSize        : {w:2000,l:1125},
+    grid            : [],
     pathLength      : 100,
     motoSize        : {
-        w : 0.0157,
-        l : 0.0234
+        w : 16,
+        l : 46
     },
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//tableau de position x/y pour chaque couleur de moto
+    initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1117,direction:'w'},
+                      {x:1992,y:0,direction:'s'},{x:8,y:1125,direction:'n'},
+                      {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
+                      {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     pseudoMap       : {},//On associe chaque pseudo à son sessionid
-    iteration       : iteration()
 }
 
 /****************************************
@@ -84,7 +88,7 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[{}]};
+    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[]};
     console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
@@ -137,12 +141,51 @@ function removePlayer(pseudo){
     }
 }
 /**
+ * @name normalize
+ * @description On normalize les données clientData avant de les envoyer au client
+ */
+ function normalize () {
+    var normalizeData = JSON.parse(JSON.stringify(clientData));
+    for(var p in normalizeData.players){
+        normalizeData.players[p].position.x/=serverData.gameSize.w;
+        normalizeData.players[p].position.y/=serverData.gameSize.l;
+        for(var path in normalizeData.players[p].path){
+            normalizeData.players[p].path[path].x/=serverData.gameSize.w;
+            normalizeData.players[p].path[path].y/=serverData.gameSize.l;
+        }
+    }
+    return normalizeData;
+ }
+/**
  * @name initGame
  * @description On initialise les positions et directions de chaque joueur
  */
 function initGame () {
-    for(var p in clientData.players){
+    serverData.playing = true;
+    var keys = Object.keys(clientData.players);
+    for(var i=0;i<keys.length;i++){
+        var pos = serverData.initial_position[i];
+        clientData.players[keys[i]].position.x = pos.x;
+        clientData.players[keys[i]].position.y = pos.y;
+        clientData.players[keys[i]].direction = pos.direction;
+        clientData.players[keys[i]].path.push({x:pos.x,y:pos.y});
     }
+    app.io.broadcast('initialisation', clientData);
+    startGame();
+}
+
+/**
+ * @name startGame
+ * @description Après que la partie ait été initialisée on lance les itérations de jeu
+ */
+
+function startGame () {
+    setInterval(function(){
+        iteration(function(){
+            var normalizeData = normalize();
+            app.io.broadcast('iteration', normalizeData);
+        });
+    },25);
 }
 
 /**
@@ -153,34 +196,33 @@ function initGame () {
  */
 function iteration(callback){
     for(var p in clientData.players){
-        console.log(p);
-
         //On transforme ce switch en fonction setMove(player,pas)
         //pour changeDir pas = motoSize.l + motoSize.w/2
         var player = clientData.players[p];
         var pasX = 0, pasY = 0;
         switch(player.direction){
             case "n":
-                player.position.y = -serverData.pas;
-                player.path.push({x:path.lastChild.x,x:path.lastChild.y-serverData.pas});
+                player.position.y += -serverData.pas;
+                player.path.push({x:player.path[player.path.length-1].x,y:player.path[player.path.length-1].y-serverData.pas});
                 break;
             case "e":
-                player.position.x = serverData.pas;
-                player.path.push({x:path.lastChild.x+serverData.pas,x:path.lastChild.y});
+                player.position.x += serverData.pas;
+                player.path.push({x:player.path[player.path.length-1].x+serverData.pas,y:player.path[player.path.length-1].y});
                 break;
             case "s":
-                player.position.y = serverData.pas;
-                player.path.push({x:path.lastChild.x,x:path.lastChild.y+serverData.pas});
+                player.position.y += serverData.pas;
+                player.path.push({x:player.path[player.path.length-1].x,y:player.path[player.path.length-1].y+serverData.pas});
                 break;
             case "w":
-                player.position.x = -serverData.pas;
-                player.path.push({x:path.lastChild.x-serverData.pas,x:path.lastChild.y});
+                player.position.x += -serverData.pas;
+                player.path.push({x:player.path[player.path.length-1].x-serverData.pas,y:player.path[player.path.length-1].y});
                 break;
         }
         //
     }
     if(callback)
         callback();
+    return true;
 }
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -228,6 +270,7 @@ app.io.route('availablePseudo', function (req) {
     }
     req.io.respond({res:available});
 });// Lorsqu'un client demande si un pseudo est dispo, si oui on lui réserve
+
 /**
  * @route login
  * @description Lorque le client a choisi un pseudo et une moto disponibles on finalise son profil sur le serveur
@@ -247,18 +290,22 @@ app.io.route('login', function (req) {
         else app.io.broadcast('motoUnvailable', req.data);
         req.io.respond(resp);
 
-        if(serverData.capacity-1>serverData.motos_available.length && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie
-            initGame(function(){
-                setInterval(function () {
-                    iteration();
-                },25);
-            });
-        } else {
-            serverData.waitingRoom.push(req.data.pseudo);
-        }
+        
     }else req.io.respond({error:"Nice try ;-) !"});
 });
 
+app.io.route('ready', function (req) {
+    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+        if(serverData.waitingRoom.length>0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie
+            initGame(function () {
+                startGame();
+            });
+        } else {
+            serverData.waitingRoom.push(req.data.pseudo);
+            console.log(serverData.waitingRoom);
+        }
+    }
+})
 ////////////    INGAME   /////////////////
 /**
  * @route changeDir
