@@ -16,15 +16,16 @@ var motos = {
 };
 
 var playersData = {
+    //"list": ["Loxy", "proxy"],
     "list": ["Loxy", "proxy"],
     //Cette liste permet de naviguer dans clientData
     //On retrouve ensuite les 0 à 10 clients du plateau
     "players": {
-        "Loxy": {
+        /*"Loxy": {
             position: {x: 0.25, y: 0.10},//Position de la moto du joueur ( pos du svg du client)
             direction: 'e',//Direction courante dans laquelle se dirige le joueur
             moto: "blue",//Le couleur de la moto choisie
-            paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10}]
+            path: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10}]
             //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
         },
 
@@ -32,12 +33,12 @@ var playersData = {
             position: {x: 0.7, y: 0.05},//Position de la moto du joueur ( pos du svg du client)
             direction: 'n',//Direction courante dans laquelle se dirige le joueur
             moto: "red",//Le couleur de la moto choisie
-            paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-        }
+            path: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
+        }*/
     }
 };
 /*Variable qui sert de test utilisée dans le redimentionnement de la fenêtre*/
-var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x: 0.25, y: 0.25}, direction: 's', moto: "blue", paths: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10},{x: 0.25, y: 0.25}]}, "proxy": {position: {x: 0.5, y: 0.05}, direction: 'w', moto: "red", paths: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}, {x: 0.5, y: 0.05}]}}};
+var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x: 0.25, y: 0.25}, direction: 's', moto: "blue", path: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10},{x: 0.25, y: 0.25}]}, "proxy": {position: {x: 0.5, y: 0.05}, direction: 'w', moto: "red", path: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}, {x: 0.5, y: 0.05}]}}};
 
 /* Variables de l'initialisation du canvas */
 var ctx;
@@ -183,9 +184,17 @@ $(document).ready(function() {
         canvas.height = innerHeight;
         canvas.style.background = "radial-gradient(#72CBD5, #013D4C)";
         ctx = canvas.getContext("2d");
-        var deNormalizedPlayersData = deNormalize(playersData);
-        initMotos(deNormalizedPlayersData);
-        drawPlayers(deNormalizedPlayersData);
+        io.on("initialisation",function (data) {
+            if(initMotos(data)){
+                drawPlayers(deNormalize(data));
+            }
+        });
+
+        io.on("iteration",function(data){
+            //console.log(data);
+                drawPlayers(deNormalize(data));
+        });
+        io.emit("ready",joueur);
     }
 
 
@@ -209,7 +218,6 @@ $(document).ready(function() {
             }
             var data = {joueur: joueur.pseudo, direction: direction};
             io.emit('changeDir', data, function (resp) {
-                console.log(resp);
             });
         }
     });
@@ -225,9 +233,9 @@ $(document).ready(function() {
         $.each(playersData.players, function(i) {
             playersData.players[i].position.x *= innerWidth;
             playersData.players[i].position.y *= innerHeight;
-            $.each(playersData.players[i].paths, function(j){
-                playersData.players[i].paths[j].x *= innerWidth;
-                playersData.players[i].paths[j].y *= innerHeight;
+            $.each(playersData.players[i].path, function(j){
+                playersData.players[i].path[j].x *= innerWidth;
+                playersData.players[i].path[j].y *= innerHeight;
             });
         });
         return playersData;
@@ -243,10 +251,10 @@ $(document).ready(function() {
         $.each(players, function(i) {
             var color = motos[players[i].moto].color;
             ctx.beginPath();
-            ctx.moveTo(players[i].paths[0].x,players[i].paths[0].y);
-            var paths = players[i].paths;
-            $.each(paths, function(j){
-                ctx.lineTo(paths[j].x, paths[j].y);
+            ctx.moveTo(players[i].path[0].x,players[i].path[0].y);
+            var path = players[i].path;
+            $.each(path, function(j){
+                ctx.lineTo(path[j].x, path[j].y);
             });
             drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
             ctx.strokeStyle = motos[players[i].moto].color;
@@ -306,8 +314,8 @@ $(document).ready(function() {
             img.title = "moto"+moto;
             img.id = "moto"+moto;
             document.body.appendChild(img);
-            var currentmoto = '#moto'+moto;
         });
+        return true;
     }
 
     // Tableau de position des motos sur le client ET sur le serveur
