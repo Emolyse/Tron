@@ -296,6 +296,12 @@ function collisionBordures(joueur){
     return false;
 }
 
+// Détection de la collition avec les autres joueurs / traces
+function collisionTraces(joueur){
+
+    return false;
+}
+
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
