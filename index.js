@@ -25,14 +25,11 @@ var clientData = {
 var serverData = {
     playing         : false,
     capacity        : 10,
-    pas             : 1,
+    pas             : 12,
     gameSize        : {w:2000,l:1125},
     grid            : [],
-    pathLength      : 100,
-    motoSize        : {
-        w : 16,
-        l : 46
-    },
+    pathLength      : 150,
+    motoSize        : { w: 16, l: 46},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
     initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1117,direction:'w'},
                       {x:1992,y:0,direction:'s'},{x:8,y:1125,direction:'n'},
@@ -197,7 +194,6 @@ function startGame () {
 function iteration(callback){
     for(var p in clientData.players){
         //On transforme ce switch en fonction setMove(player,pas)
-        //pour changeDir pas = motoSize.l + motoSize.w/2
         var player = clientData.players[p];
         var pasX = 0, pasY = 0;
         switch(player.direction){
@@ -217,6 +213,9 @@ function iteration(callback){
                 player.position.x += -serverData.pas;
                 player.path.push({x:player.path[player.path.length-1].x-serverData.pas,y:player.path[player.path.length-1].y});
                 break;
+        }
+        if(player.path.length>serverData.pathLength){
+            player.path.shift();
         }
         //
     }
@@ -316,13 +315,62 @@ app.io.route('ready', function (req) {
  */
 app.io.route('changeDir', function(req){
     //On vérifie que le client est le bon et qu'il n'a pas changé son pseudo via la console
+    //console.log(req.data);
+    //console.log(serverData.pseudoMap,req.socket.id);
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         var loginJoueur = req.data.pseudo;
         var directionJoueur = req.data.direction;
-        clientData.players[loginJoueur].direction = directionJoueur;
+        var oldDir = clientData.players[loginJoueur].direction;
+        var player = clientData.players[loginJoueur];
+        var pas = serverData.motoSize.l + serverData.motoSize.w/2;
+        console.log(player);
+        switch (directionJoueur){
+            //case 's': if(oldDir!=='n'){
+            //
+            //}
+            case "n":
+                if(oldDir!=='s' && oldDir!=='n') {
+                    player.position.y += -pas;
+                    player.path.push({
+                        x: player.path[player.path.length - 1].x,
+                        y: player.path[player.path.length - 1].y - pas
+                    });
+                    player.direction = directionJoueur;
+                }
+                break;
+            case "e":
+                if(oldDir!=='w' && oldDir!=='e') {
+                    player.position.x += pas;
+                    player.path.push({
+                        x: player.path[player.path.length - 1].x + pas,
+                        y: player.path[player.path.length - 1].y
+                    });
+                    player.direction = directionJoueur;
+                }
+                break;
+            case "s":
+                if(oldDir!=='n' && oldDir!=='s') {
+                    player.position.y += pas;
+                    player.path.push({
+                        x: player.path[player.path.length - 1].x,
+                        y: player.path[player.path.length - 1].y + pas
+                    });
+                    player.direction = directionJoueur;
+                }
+                break;
+            case "w":
+                if(oldDir!=='e' && oldDir!=='w') {
+                    player.position.x += -pas;
+                    player.path.push({
+                        x: player.path[player.path.length - 1].x - pas,
+                        y: player.path[player.path.length - 1].y
+                    });
+                    player.direction = directionJoueur;
+                }
+                break;
+        }
         // req contient l'id du joueur et la nouvelle direction
         //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie aux autres client des infos du joueur
-        console.log("clientData", clientData);
     }
 });
 

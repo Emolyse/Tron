@@ -216,7 +216,7 @@ $(document).ready(function() {
             if(key == 40){
                 direction = "s";
             }
-            var data = {joueur: joueur.pseudo, direction: direction};
+            var data = {pseudo: joueur.pseudo, direction: direction};
             io.emit('changeDir', data, function (resp) {
             });
         }
@@ -246,7 +246,7 @@ $(document).ready(function() {
      ****************************************/
     /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
     function drawPlayers(data){
-
+        ctx.clearRect(0,0,innerWidth,innerHeight);
         var players = data.players;
         $.each(players, function(i) {
             var color = motos[players[i].moto].color;
