@@ -45,6 +45,7 @@ var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x
 /* Variables de l'initialisation du canvas */
 var ctx;
 var canvas;
+var canvasSize;
 
 
 /*****************************
@@ -178,22 +179,25 @@ $(document).ready(function() {
      ****************************************/
     ////////////    INIT GAME ////////////////
     function loadGame(){
+        plateau = document.createElement("div");
+        plateau.id = "plateau";
+        canvasSize = Math.min(innerHeight, innerWidth);
+        plateau.style.width =  canvasSize+"px";
+        plateau.style.height = canvasSize+"px";
+        $("main").append(plateau);
         canvas = document.createElement("canvas");
         canvas.id = "tronCanvas";
-        canvas.style.display = "absolute";
-        document.body.appendChild(canvas);
-        canvas.width = innerWidth;
-        canvas.height = innerHeight;
-        canvas.style.background = "radial-gradient(#72CBD5, #013D4C)";
+        $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
         io.on("initialisation",function (data) {
-            if(initMotos(data)){
+            if(initMotos(deNormalize((data)))){
                 drawPlayers(deNormalize(data));
             }
         });
 
         io.on("iteration",function(data){
-                drawPlayers(deNormalize(data));
+            //console.log(data);
+            drawPlayers(deNormalize(data));
         });
         io.emit("ready",joueur);
 
@@ -265,11 +269,13 @@ $(document).ready(function() {
     function deNormalize(data){
         var playersData = jQuery.extend(true, {}, data);
         $.each(playersData.players, function(i) {
-            playersData.players[i].position.x *= innerWidth;
-            playersData.players[i].position.y *= innerHeight;
+            playersData.players[i].position.x *= canvasSize;
+            playersData.players[i].position.y *= canvasSize;
+            playersData.players[i].motoSize.l *= canvasSize;
+            playersData.players[i].motoSize.w *= canvasSize;
             $.each(playersData.players[i].path, function(j){
-                playersData.players[i].path[j].x *= innerWidth;
-                playersData.players[i].path[j].y *= innerHeight;
+                playersData.players[i].path[j].x *= canvasSize;
+                playersData.players[i].path[j].y *= canvasSize;
             });
         });
         return playersData;
@@ -280,7 +286,7 @@ $(document).ready(function() {
      ****************************************/
     /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
     function drawPlayers(data){
-        ctx.clearRect(0,0,innerWidth,innerHeight);
+        ctx.clearRect(0,0,canvasSize,canvasSize);
         var players = data.players;
         $.each(players, function(i) {
             var color = motos[players[i].moto].color;
@@ -292,7 +298,7 @@ $(document).ready(function() {
             });
             drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
             ctx.strokeStyle = motos[players[i].moto].color;
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 1;
             ctx.stroke();
         });
     }
@@ -316,7 +322,7 @@ $(document).ready(function() {
             default: degres = 0;
         }
         var transX = x;
-        var transY = y - 7.5; // A MODIFIER (DEMI TAILLE DE LA MOTO QUI SERA CALCULEE)
+        var transY = y - currentmoto[0].height/2;
 
         currentmoto[0].style.transformOrigin="0% 50%";
         currentmoto[0].style.transform="translate("+transX+"px,"+transY+"px)";
@@ -331,23 +337,29 @@ $(document).ready(function() {
 
     /*Redimentionne le canvas quand la taille de la fenêtre change*/
     $( window ).resize(function() {
-        canvas.height = innerHeight;
-        canvas.width = innerWidth;
-        var deNormalizeData = deNormalize(playersData2);
-        drawPlayers(deNormalizeData);
+        var plateauSize = Math.min(innerHeight, innerWidth);
+        var plateau = document.getElementById("plateau");
+        plateau.style.height = plateauSize+"px";
+        plateau.style.width = plateauSize+"px";
+        canvasSize = plateauSize;
     });
 
     /* Permet de charger toutes les motos en cours de jeu */
     function initMotos(playersData){
         $(".moto").remove();
         $.each(playersData.players, function(i) {
+            console.log(playersData.players[i].motoSize);
             var moto = playersData.players[i].moto;
             var img = document.createElement("img");
             img.src = motoPath+motos[moto].file;
             img.style.position = "absolute";
+            img.style.width = playersData.players[i].motoSize.l+"px";
+            img.style.height = playersData.players[i].motoSize.w+"px";
+            img.style.top = 0;
+            img.style.left = 0;
             img.title = "moto"+moto;
             img.id = "moto"+moto;
-            document.body.appendChild(img);
+            document.getElementById("plateau").appendChild(img);
         });
         return true;
     }

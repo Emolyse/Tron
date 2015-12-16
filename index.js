@@ -25,14 +25,14 @@ var clientData = {
 var serverData = {
     playing         : false,
     capacity        : 10,
-    pas             : 10,
-    gameSize        : {w:2000,l:1125},
+    pas             : 12,
+    gameSize        : {w:2000,l:2000},
     grid            : [],
     pathLength      : 150,
-    motoSize        : { w: 16, l: 46},
+    motoSize        : { w: 30, l: 90},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[{x:1000,y:1000,direction:'e'},{x:2000,y:1117,direction:'w'},
-                      {x:1992,y:0,direction:'s'},{x:8,y:1125,direction:'n'},
+    initial_position:[{x:0,y:20,direction:'e'},{x:2000,y:1992,direction:'w'},
+                      {x:1992,y:0,direction:'s'},{x:8,y:2000,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
@@ -85,7 +85,7 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[]};
+    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[], motoSize:{l:-1, w:-1}};
     console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
@@ -146,6 +146,8 @@ function removePlayer(pseudo){
     for(var p in normalizeData.players){
         normalizeData.players[p].position.x/=serverData.gameSize.w;
         normalizeData.players[p].position.y/=serverData.gameSize.l;
+        normalizeData.players[p].motoSize.l/=serverData.gameSize.l;
+        normalizeData.players[p].motoSize.w/=serverData.gameSize.w;
         for(var path in normalizeData.players[p].path){
             normalizeData.players[p].path[path].x/=serverData.gameSize.w;
             normalizeData.players[p].path[path].y/=serverData.gameSize.l;
@@ -153,7 +155,28 @@ function removePlayer(pseudo){
     }
     return normalizeData;
  }
+
 /**
+ * @name collision
+ * @description On régénère la grille correspondant à l'état d'avancement
+ */
+function collision () {
+    var g = serverData.grid;
+    for(var i in clientData.players){
+        var player
+        var pos = clientData.players[i].position;
+        if(pos.x<0 || pos.y<0 || pos.x>serverData.gameSize.w || pos.y>serverData.gameSize.l){
+            clientData.player
+        }
+        for(var j in clientData.players[i].path){
+            var point = clientData.players[i].path[j];
+            
+        }
+
+    };
+}
+
+ /**
  * @name initGame
  * @description On initialise les positions et directions de chaque joueur
  */
@@ -165,9 +188,11 @@ function initGame () {
         clientData.players[keys[i]].position.x = pos.x;
         clientData.players[keys[i]].position.y = pos.y;
         clientData.players[keys[i]].direction = pos.direction;
+        clientData.players[keys[i]].motoSize.l = serverData.motoSize.l;
+        clientData.players[keys[i]].motoSize.w = serverData.motoSize.w;
         clientData.players[keys[i]].path.push({x:pos.x,y:pos.y});
     }
-    app.io.broadcast('initialisation', clientData);
+    app.io.broadcast('initialisation', normalize());
     startGame();
 }
 
