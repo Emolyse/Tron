@@ -300,6 +300,9 @@ $(document).ready(function() {
             });
             drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
             ctx.strokeStyle = motos[players[i].moto].color;
+            if(players[i].moto.direction == "x"){
+                ctx.strokeStyle = "rgba(10, 10, 10, 1)";
+            }
             ctx.lineWidth = 1;
             ctx.stroke();
         });
