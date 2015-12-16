@@ -29,14 +29,14 @@ var serverData = {
     gameSize        : {w:2000,l:2000},
     grid            : [],
     pathLength      : 150,
-    motoSize        : { w: 16, l: 46},
+    motoSize        : { w: 30, l: 90},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
     initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1992,direction:'w'},
                       {x:1992,y:0,direction:'s'},{x:8,y:2000,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
-    pseudoMap       : {},//On associe chaque pseudo à son sessionid
+    pseudoMap       : {}//On associe chaque pseudo à son sessionid
 }
 
 /****************************************
@@ -85,7 +85,7 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[]};
+    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[], motoSize:{l:-1, w:-1}};
     console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
@@ -146,6 +146,8 @@ function removePlayer(pseudo){
     for(var p in normalizeData.players){
         normalizeData.players[p].position.x/=serverData.gameSize.w;
         normalizeData.players[p].position.y/=serverData.gameSize.l;
+        normalizeData.players[p].motoSize.l/=serverData.gameSize.l;
+        normalizeData.players[p].motoSize.w/=serverData.gameSize.w;
         for(var path in normalizeData.players[p].path){
             normalizeData.players[p].path[path].x/=serverData.gameSize.w;
             normalizeData.players[p].path[path].y/=serverData.gameSize.l;
@@ -186,9 +188,11 @@ function initGame () {
         clientData.players[keys[i]].position.x = pos.x;
         clientData.players[keys[i]].position.y = pos.y;
         clientData.players[keys[i]].direction = pos.direction;
+        clientData.players[keys[i]].motoSize.l = serverData.motoSize.l;
+        clientData.players[keys[i]].motoSize.w = serverData.motoSize.w;
         clientData.players[keys[i]].path.push({x:pos.x,y:pos.y});
     }
-    app.io.broadcast('initialisation', clientData);
+    app.io.broadcast('initialisation', normalize());
     startGame();
 }
 
