@@ -36,7 +36,7 @@ var serverData = {
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
-    pseudoMap       : {},//On associe chaque pseudo à son sessionid
+    pseudoMap       : {}//On associe chaque pseudo à son sessionid
 }
 
 /****************************************

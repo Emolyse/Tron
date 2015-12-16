@@ -43,6 +43,7 @@ var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x
 /* Variables de l'initialisation du canvas */
 var ctx;
 var canvas;
+var canvasSide;
 
 
 /*****************************
@@ -176,13 +177,15 @@ $(document).ready(function() {
      ****************************************/
     ////////////    INIT GAME ////////////////
     function loadGame(){
+        plateau = document.createElement("div");
+        plateau.id = "plateau";
+        canvasSide = Math.min(innerHeight, innerWidth);
+        plateau.style.width =  canvasSide+"px";
+        plateau.style.height = canvasSide+"px";
+        $("main").append(plateau);
         canvas = document.createElement("canvas");
         canvas.id = "tronCanvas";
-        canvas.style.display = "absolute";
-        document.body.appendChild(canvas);
-        canvas.width = innerWidth;
-        canvas.height = innerHeight;
-        canvas.style.background = "radial-gradient(#72CBD5, #013D4C)";
+        $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
         io.on("initialisation",function (data) {
             if(initMotos(data)){
@@ -192,7 +195,7 @@ $(document).ready(function() {
 
         io.on("iteration",function(data){
             //console.log(data);
-                drawPlayers(deNormalize(data));
+            drawPlayers(deNormalize(data));
         });
         io.emit("ready",joueur);
     }
@@ -231,11 +234,11 @@ $(document).ready(function() {
     function deNormalize(data){
         var playersData = jQuery.extend(true, {}, data);
         $.each(playersData.players, function(i) {
-            playersData.players[i].position.x *= innerWidth;
-            playersData.players[i].position.y *= innerHeight;
+            playersData.players[i].position.x *= canvasSide;
+            playersData.players[i].position.y *= canvasSide;
             $.each(playersData.players[i].path, function(j){
-                playersData.players[i].path[j].x *= innerWidth;
-                playersData.players[i].path[j].y *= innerHeight;
+                playersData.players[i].path[j].x *= canvasSide;
+                playersData.players[i].path[j].y *= canvasSide;
             });
         });
         return playersData;
@@ -246,7 +249,7 @@ $(document).ready(function() {
      ****************************************/
     /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
     function drawPlayers(data){
-        ctx.clearRect(0,0,innerWidth,innerHeight);
+        ctx.clearRect(0,0,canvasSide,canvasSide);
         var players = data.players;
         $.each(players, function(i) {
             var color = motos[players[i].moto].color;
@@ -258,7 +261,7 @@ $(document).ready(function() {
             });
             drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
             ctx.strokeStyle = motos[players[i].moto].color;
-            ctx.lineWidth = 5;
+            ctx.lineWidth = 2;
             ctx.stroke();
         });
     }
@@ -281,6 +284,7 @@ $(document).ready(function() {
                 break;
             default: degres = 0;
         }
+        console.log(x);
         var transX = x;
         var transY = y - 7.5; // A MODIFIER (DEMI TAILLE DE LA MOTO QUI SERA CALCULEE)
 
@@ -297,10 +301,10 @@ $(document).ready(function() {
 
     /*Redimentionne le canvas quand la taille de la fenêtre change*/
     $( window ).resize(function() {
-        canvas.height = innerHeight;
-        canvas.width = innerWidth;
-        var deNormalizeData = deNormalize(playersData2);
-        drawPlayers(deNormalizeData);
+        var plateauSize = Math.min(innerHeight, innerWidth);
+        var plateau = document.getElementById("plateau");
+        plateau.style.height = plateauSize+"px";
+        plateau.style.width = plateauSize+"px";
     });
 
     /* Permet de charger toutes les motos en cours de jeu */
@@ -311,9 +315,11 @@ $(document).ready(function() {
             var img = document.createElement("img");
             img.src = motoPath+motos[moto].file;
             img.style.position = "absolute";
+            img.style.top = 0;
+            img.style.left = 0;
             img.title = "moto"+moto;
             img.id = "moto"+moto;
-            document.body.appendChild(img);
+            document.getElementById("plateau").appendChild(img);
         });
         return true;
     }
