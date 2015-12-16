@@ -321,7 +321,7 @@ app.io.route('login', function (req) {
 
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
-        if(serverData.waitingRoom.length>0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie /////////////////////////
+        if(serverData.waitingRoom.length>=0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
             initGame(function () {
                 startGame();
             });

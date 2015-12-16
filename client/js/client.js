@@ -187,6 +187,8 @@ $(document).ready(function() {
         $("main").append(plateau);
         canvas = document.createElement("canvas");
         canvas.id = "tronCanvas";
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
         $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
         io.on("initialisation",function (data) {
@@ -337,11 +339,12 @@ $(document).ready(function() {
 
     /*Redimentionne le canvas quand la taille de la fenêtre change*/
     $( window ).resize(function() {
-        var plateauSize = Math.min(innerHeight, innerWidth);
+        canvasSize = Math.min(innerHeight, innerWidth);
         var plateau = document.getElementById("plateau");
-        plateau.style.height = plateauSize+"px";
-        plateau.style.width = plateauSize+"px";
-        canvasSize = plateauSize;
+        plateau.style.height = canvasSize+"px";
+        plateau.style.width = canvasSize+"px";
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
     });
 
     /* Permet de charger toutes les motos en cours de jeu */
