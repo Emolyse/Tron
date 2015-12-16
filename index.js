@@ -207,6 +207,7 @@ function startGame () {
         iteration(function(){
             var normalizeData = normalize();
             app.io.broadcast('iteration', normalizeData);
+            collision();
         });
     },25);
 }
