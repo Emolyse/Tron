@@ -158,15 +158,15 @@ function removePlayer(pseudo){
 
 /**
  * @name collision
- * @description On régénère la grille correspondant à l'état d'avancement
+ * @description Ondétecte les collisions
  */
 function collision () {
     var g = serverData.grid;
     for(var i in clientData.players){
-        var player
-        var pos = clientData.players[i].position;
+        var player = clientData.players[i];
+        var pos = player.position;
         if(pos.x<0 || pos.y<0 || pos.x>serverData.gameSize.w || pos.y>serverData.gameSize.l){
-            clientData.player
+            player.direction = "x";
         }
         for(var j in clientData.players[i].path){
             var point = clientData.players[i].path[j];
