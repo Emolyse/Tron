@@ -1,5 +1,7 @@
+var initGamma =false,initBeta=0;
 var joueur = {
-    pseudo:localStorage.pseudo
+    pseudo:localStorage.pseudo,
+    moto:"blue"
 };
 var motoPath = '/client/img/motos/moto_';
 var motos = {
@@ -191,36 +193,68 @@ $(document).ready(function() {
         });
 
         io.on("iteration",function(data){
-            //console.log(data);
                 drawPlayers(deNormalize(data));
         });
         io.emit("ready",joueur);
+
+        io.on('start', function(){
+            gamma = 0;
+            beta = 0;
+            window.addEventListener('deviceorientation', function(event) {
+                var beta=0,gamma=0;
+                if(initGamma){
+                    initGamma = event.gamma;
+                    initBeta = event.beta;
+                }else {
+                    gamma = event.gamma-initGamma;
+                    beta = event.beta-initBeta;
+                }
+                var direction = "";
+                if(gamma > 25){
+                    direction = "e";
+                }
+                if(gamma < -25){
+                    direction = "w";
+                }
+                if(beta > 25){
+                    direction = "s";
+                }
+                if(beta < -25){
+                    direction = "n";
+                }
+                var data = {pseudo: joueur.pseudo, direction: direction};
+                io.emit('changeDir', data, function (resp) {});
+            });
+
+                document.addEventListener('keyup', function (evt) {
+                    if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
+                        var key = evt.which;
+                        var direction = "";
+                        if(key == 37){
+                            direction = "w";
+                        }
+                        if(key == 38){
+                            direction = "n";
+                        }
+                        if(key == 39){
+                            direction = "e";
+                        }
+                        if(key == 40){
+                            direction = "s";
+                        }
+                        var data = {pseudo: joueur.pseudo, direction: direction};
+                        io.emit('changeDir', data, function (resp) {
+                        });
+                    }
+                });
+            //} else {
+            //    // Le navigateur ne supporte pas l'événement deviceorientation ou on est sur un pc
+            //}
+        });
     }
 
 
     ////////////    INGAME   /////////////////
-    /** Evénements du joueur **/
-    document.addEventListener('keyup', function (evt) {
-        if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
-            var key = evt.which;
-            var direction = "";
-            if(key == 37){
-                direction = "w";
-            }
-            if(key == 38){
-                direction = "n";
-            }
-            if(key == 39){
-                direction = "e";
-            }
-            if(key == 40){
-                direction = "s";
-            }
-            var data = {pseudo: joueur.pseudo, direction: direction};
-            io.emit('changeDir', data, function (resp) {
-            });
-        }
-    });
 
     /** Récupération des infos d'un joueur **/
     io.on('changeDir', function (data) {
@@ -318,7 +352,28 @@ $(document).ready(function() {
         return true;
     }
 
+
+
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
 });
 })(jQuery);
+
+//function initTrace(){
+//    var ctx = document.querySelector("#canvasPoints").getContext('2d');
+//    ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+//    ctx.lineWidth = 2;
+//    ctx.beginPath();
+//    ctx.moveTo(0, 90);
+//    ctx.lineTo(180, 90);
+//    ctx.moveTo(90, 0);
+//    ctx.lineTo(90, 180);
+//    ctx.stroke();
+//}
+//
+//function trace(beta, gamma){
+//    var ctx = document.querySelector("#canvasPoints").getContext('2d');
+//    ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+//
+//    ctx.fillRect(beta+90, 90-gamma, 2,2);
+//}

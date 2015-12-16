@@ -25,18 +25,18 @@ var clientData = {
 var serverData = {
     playing         : false,
     capacity        : 10,
-    pas             : 12,
+    pas             : 10,
     gameSize        : {w:2000,l:1125},
     grid            : [],
     pathLength      : 150,
     motoSize        : { w: 16, l: 46},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1117,direction:'w'},
+    initial_position:[{x:1000,y:1000,direction:'e'},{x:2000,y:1117,direction:'w'},
                       {x:1992,y:0,direction:'s'},{x:8,y:1125,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
-    pseudoMap       : {},//On associe chaque pseudo à son sessionid
+    pseudoMap       : {}//On associe chaque pseudo à son sessionid
 }
 
 /****************************************
@@ -177,6 +177,7 @@ function initGame () {
  */
 
 function startGame () {
+    app.io.broadcast('start');
     setInterval(function(){
         iteration(function(){
             var normalizeData = normalize();
@@ -295,7 +296,7 @@ app.io.route('login', function (req) {
 
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
-        if(serverData.waitingRoom.length>0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie
+        if(serverData.waitingRoom.length>0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie /////////////////////////
             initGame(function () {
                 startGame();
             });
@@ -323,7 +324,6 @@ app.io.route('changeDir', function(req){
         var oldDir = clientData.players[loginJoueur].direction;
         var player = clientData.players[loginJoueur];
         var pas = serverData.motoSize.l + serverData.motoSize.w/2;
-        console.log(player);
         switch (directionJoueur){
             //case 's': if(oldDir!=='n'){
             //
@@ -399,4 +399,8 @@ function collisionTraces(joueur){
 
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
+});
+
+app.io.route('console', function(req){
+    console.log(req.data);
 });
