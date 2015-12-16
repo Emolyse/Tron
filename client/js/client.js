@@ -184,6 +184,7 @@ $(document).ready(function() {
         canvasSize = Math.min(innerHeight, innerWidth);
         plateau.style.width =  canvasSize+"px";
         plateau.style.height = canvasSize+"px";
+        plateau.style.overflow = "hidden";
         $("main").append(plateau);
         canvas = document.createElement("canvas");
         canvas.id = "tronCanvas";
@@ -300,8 +301,8 @@ $(document).ready(function() {
             });
             drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
             ctx.strokeStyle = motos[players[i].moto].color;
-            if(players[i].moto.direction == "x"){
-                ctx.strokeStyle = "rgba(10, 10, 10, 1)";
+            if(players[i].direction == "x"){
+                ctx.strokeStyle = "#aaa";
             }
             ctx.lineWidth = 1;
             ctx.stroke();
@@ -324,7 +325,7 @@ $(document).ready(function() {
             case "s":
                 degres = 90;
                 break;
-            default: degres = 0;
+            //default: degres = 0;
         }
         var transX = x;
         var transY = y - currentmoto[0].height/2;
