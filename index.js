@@ -167,10 +167,10 @@ function collision () {
         var pos = player.position;
         if(player.statut=="playing") {
             switch (player.direction) {
-                case 'n': if (pos.y - serverData.motoSize.l < 0) player.direction = "x"; break;
-                case 'e': if (pos.x + serverData.motoSize.l > serverData.gameSize) player.direction = "x"; break;
-                case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize) player.direction = "x"; break;
-                case 'w': if (pos.x - serverData.motoSize.l < 0) player.direction = "x"; break;
+                case 'n': if (pos.y - serverData.motoSize.l < 0) player.statut = "dead"; break;
+                case 'e': if (pos.x + serverData.motoSize.l > serverData.gameSize.w) player.statut = "dead"; break;
+                case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
+                case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
             }
             for (var j in clientData.players[i].path) {
                 var point = clientData.players[i].path[j];
@@ -219,7 +219,7 @@ function initGame () {
         player.motoSize.l = serverData.motoSize.l;
         player.motoSize.w = serverData.motoSize.w;
         player.path.push({x:pos.x,y:pos.y});
-        player.statut = "invicible";
+        player.statut = "playing";
     }
     app.io.broadcast('initialisation', normalize());
     startGame();
@@ -252,12 +252,21 @@ function iteration(callback){
         //On transforme ce switch en fonction setMove(player,pas)
         var player = clientData.players[p];
         var pasX = 0, pasY = 0;
-        if(player.statut=="playing" || player.statut=="invicible")
-        switch(player.direction){
-            case "n": player.position.y += -serverData.pas; break;
-            case "e": player.position.x += serverData.pas; break;
-            case "s": player.position.y += serverData.pas; break;
-            case "w": player.position.x += -serverData.pas; break;
+        if(player.statut=="playing" || player.statut=="invicible") {
+            switch (player.direction) {
+                case "n":
+                    player.position.y += -serverData.pas;
+                    break;
+                case "e":
+                    player.position.x += serverData.pas;
+                    break;
+                case "s":
+                    player.position.y += serverData.pas;
+                    break;
+                case "w":
+                    player.position.x += -serverData.pas;
+                    break;
+            }
         }
         if(player.statut=="playing")
             player.path.push({x:player.position.x,y:player.position.y});
