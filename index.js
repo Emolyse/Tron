@@ -26,13 +26,13 @@ var serverData = {
     playing         : false,
     capacity        : 10,
     pas             : 12,
-    gameSize        : {w:2000,l:1125},
+    gameSize        : {w:2000,l:2000},
     grid            : [],
     pathLength      : 150,
     motoSize        : { w: 16, l: 46},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1117,direction:'w'},
-                      {x:1992,y:0,direction:'s'},{x:8,y:1125,direction:'n'},
+    initial_position:[{x:0,y:1,direction:'e'},{x:2000,y:1992,direction:'w'},
+                      {x:1992,y:0,direction:'s'},{x:8,y:2000,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
@@ -153,7 +153,28 @@ function removePlayer(pseudo){
     }
     return normalizeData;
  }
+
 /**
+ * @name collision
+ * @description On régénère la grille correspondant à l'état d'avancement
+ */
+function collision () {
+    var g = serverData.grid;
+    for(var i in clientData.players){
+        var player
+        var pos = clientData.players[i].position;
+        if(pos.x<0 || pos.y<0 || pos.x>serverData.gameSize.w || pos.y>serverData.gameSize.l){
+            clientData.player
+        }
+        for(var j in clientData.players[i].path){
+            var point = clientData.players[i].path[j];
+            
+        }
+
+    };
+}
+
+ /**
  * @name initGame
  * @description On initialise les positions et directions de chaque joueur
  */
@@ -323,7 +344,6 @@ app.io.route('changeDir', function(req){
         var oldDir = clientData.players[loginJoueur].direction;
         var player = clientData.players[loginJoueur];
         var pas = serverData.motoSize.l + serverData.motoSize.w/2;
-        console.log(player);
         switch (directionJoueur){
             //case 's': if(oldDir!=='n'){
             //
