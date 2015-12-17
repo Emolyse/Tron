@@ -32,7 +32,7 @@ var serverData = {
     pathLength      : 150,
     motoSize        : { w: 30, l: 90},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[{x:0,y:20,direction:'e'},{x:2000,y:1992,direction:'w'},
+    initial_position:[{x:20,y:20,direction:'e'},{x:2000,y:1992,direction:'w'},
                       {x:1992,y:0,direction:'s'},{x:8,y:2000,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
@@ -86,7 +86,7 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'X', moto: '', path:[], motoSize:{l:-1, w:-1}};
+    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting"};
     console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
@@ -175,15 +175,42 @@ function collision () {
     for(var i in clientData.players){
         var player = clientData.players[i];
         var pos = player.position;
-        if(pos.x<0 || pos.y<0 || pos.x>serverData.gameSize.w || pos.y>serverData.gameSize.l){
-            player.direction = "x";
-        }
-        for(var j in clientData.players[i].path){
-            var point = clientData.players[i].path[j];
-            
+        if(player.statut=="playing") {
+            switch (player.direction) {
+                case 'n': if (pos.y - serverData.motoSize.l < 0) player.statut = "dead"; break;
+                case 'e': if (pos.x + serverData.motoSize.l > serverData.gameSize.w) player.statut = "dead"; break;
+                case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
+                case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
+            }
+            for (var j in clientData.players[i].path) {
+                var point = clientData.players[i].path[j];
+            }
+        } else if (player.statut=="invicible"){
+            switch (player.direction) {
+                case 'n':
+                    if (pos.y < 0) {
+                        player.position.y=serverData.gameSize.l+serverData.motoSize.l;
+                    } break;
+                case 'e':
+                    if (pos.x > serverData.gameSize.w) {
+                        player.position.x=-serverData.motoSize.l;
+                    } break;
+                case 's':
+                    if (pos.y > serverData.gameSize.l) {
+                        player.position.y=-serverData.motoSize.l;
+                    } break;
+                case 'w':
+                    if (pos.x < 0) {
+                        player.position.x=serverData.gameSize.w+serverData.motoSize.l;
+                    } break;
+            }
+            if(player.path.length>serverData.pathLength){
+                player.path.shift();
+            }
         }
 
-    };
+    }
+    //console.log(clientData.players);
 }
 
  /**
@@ -194,11 +221,15 @@ function initGame () {
     var keys = Object.keys(clientData.players);
     for(var i=0;i<keys.length;i++){
         var pos = serverData.initial_position[i];
-        clientData.players[keys[i]].position.x = pos.x;
-        clientData.players[keys[i]].position.y = pos.y;
-        clientData.players[keys[i]].direction = pos.direction;
+        var player = clientData.players[keys[i]];
+        player.position.x = pos.x;
+        player.position.y = pos.y;
+        player.direction = pos.direction;
+        player.motoSize.l = serverData.motoSize.l;
+        player.motoSize.w = serverData.motoSize.w;
         clientData.players[keys[i]].path.length = 0;
-        clientData.players[keys[i]].path.push({x:pos.x,y:pos.y});
+        player.path.push({x:pos.x,y:pos.y});
+        player.statut = "playing";
     }
     app.io.broadcast('initialisation', normalize());
 }
@@ -238,24 +269,24 @@ function iteration(callback){
         //On transforme ce switch en fonction setMove(player,pas)
         var player = clientData.players[p];
         var pasX = 0, pasY = 0;
-        switch(player.direction){
-            case "n":
-                player.position.y += -serverData.pas;
-                player.path.push({x:player.path[player.path.length-1].x,y:player.path[player.path.length-1].y-serverData.pas});
-                break;
-            case "e":
-                player.position.x += serverData.pas;
-                player.path.push({x:player.path[player.path.length-1].x+serverData.pas,y:player.path[player.path.length-1].y});
-                break;
-            case "s":
-                player.position.y += serverData.pas;
-                player.path.push({x:player.path[player.path.length-1].x,y:player.path[player.path.length-1].y+serverData.pas});
-                break;
-            case "w":
-                player.position.x += -serverData.pas;
-                player.path.push({x:player.path[player.path.length-1].x-serverData.pas,y:player.path[player.path.length-1].y});
-                break;
+        if(player.statut=="playing" || player.statut=="invicible") {
+            switch (player.direction) {
+                case "n":
+                    player.position.y += -serverData.pas;
+                    break;
+                case "e":
+                    player.position.x += serverData.pas;
+                    break;
+                case "s":
+                    player.position.y += serverData.pas;
+                    break;
+                case "w":
+                    player.position.x += -serverData.pas;
+                    break;
+            }
         }
+        if(player.statut=="playing")
+            player.path.push({x:player.position.x,y:player.position.y});
         if(player.path.length>serverData.pathLength){
             player.path.shift();
         }
@@ -342,6 +373,10 @@ app.io.route('login', function (req) {
     }else req.io.respond({error:"Nice try ;-) !"});
 });
 
+/**
+ * @route ready
+ * @description
+ */
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         if(!serverData.playing) {
@@ -374,51 +409,41 @@ app.io.route('changeDir', function(req){
     //console.log(serverData.pseudoMap,req.socket.id);
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         var loginJoueur = req.data.pseudo;
-        var directionJoueur = req.data.direction;
         var oldDir = clientData.players[loginJoueur].direction;
         var player = clientData.players[loginJoueur];
-        var pas = serverData.motoSize.l + serverData.motoSize.w/2;
+        var directionJoueur = player.direction=='x'?'x':req.data.direction;
+        var pas = serverData.motoSize.l - serverData.motoSize.w;
+        if(oldDir=='w' || oldDir=='n') pas = -pas;
         switch (directionJoueur){
-            //case 's': if(oldDir!=='n'){
-            //
-            //}
             case "n":
                 if(oldDir!=='s' && oldDir!=='n') {
-                    player.position.y += -pas;
-                    player.path.push({
-                        x: player.path[player.path.length - 1].x,
-                        y: player.path[player.path.length - 1].y - pas
-                    });
+                    player.position.x += pas;
+                    if(player.statut=="playing")
+                        player.path.push({x:player.position.x,y:player.position.y});
                     player.direction = directionJoueur;
                 }
                 break;
             case "e":
                 if(oldDir!=='w' && oldDir!=='e') {
-                    player.position.x += pas;
-                    player.path.push({
-                        x: player.path[player.path.length - 1].x + pas,
-                        y: player.path[player.path.length - 1].y
-                    });
+                    player.position.y += pas;
+                    if(player.statut=="playing")
+                        player.path.push({x:player.position.x,y:player.position.y});
                     player.direction = directionJoueur;
                 }
                 break;
             case "s":
                 if(oldDir!=='n' && oldDir!=='s') {
-                    player.position.y += pas;
-                    player.path.push({
-                        x: player.path[player.path.length - 1].x,
-                        y: player.path[player.path.length - 1].y + pas
-                    });
+                    player.position.x += pas;
+                    if(player.statut=="playing")
+                        player.path.push({x:player.position.x,y:player.position.y});
                     player.direction = directionJoueur;
                 }
                 break;
             case "w":
                 if(oldDir!=='e' && oldDir!=='w') {
-                    player.position.x += -pas;
-                    player.path.push({
-                        x: player.path[player.path.length - 1].x - pas,
-                        y: player.path[player.path.length - 1].y
-                    });
+                    player.position.y += pas;
+                    if(player.statut=="playing")
+                        player.path.push({x:player.position.x,y:player.position.y});
                     player.direction = directionJoueur;
                 }
                 break;
@@ -427,29 +452,6 @@ app.io.route('changeDir', function(req){
         //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie aux autres client des infos du joueur
     }
 });
-
-// Détection de la collision sur les bords du canvas / de l'écran
-function collisionBordures(joueur){
-    if(joueur.position.y - motoSize.l > 1 && joueur.direction == "n"){
-        return true;
-    }
-    if(joueur.position.y + motoSize.l > 1 && joueur.direction == "s"){
-        return true;
-    }
-    if(joueur.position.x + motoSize.l > 1 && joueur.direction == "e"){
-        return true;
-    }
-    if(joueur.position.x - motoSize.l > 1 && joueur.direction == "w"){
-        return true;
-    }
-    return false;
-}
-
-// Détection de la collition avec les autres joueurs / traces
-function collisionTraces(joueur){
-
-    return false;
-}
 
 app.listen(3001, function () {
     console.log("Listening localhost:3001");
