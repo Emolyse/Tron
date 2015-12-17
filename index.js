@@ -1,6 +1,7 @@
 var express = require('express.io');
 var app = express();
 app.http().io();
+var refreshIntervalId;
 
 /**
  * @global clientData
@@ -100,6 +101,15 @@ function initPlayer(player){
         if(serverData.motos_available[i]===player.moto){
             serverData.motos_available.splice(i,1);
             clientData.players[player.pseudo].moto = player.moto;
+            clientData.players[player.pseudo].motoSize.l = serverData.motoSize.l;
+            clientData.players[player.pseudo].motoSize.w = serverData.motoSize.w;
+            if(serverData.playing){
+                var pos = serverData.initial_position[clientData.list.length-1];
+                clientData.players[player.pseudo].position.x = pos.x;
+                clientData.players[player.pseudo].position.y = pos.y;
+                clientData.players[player.pseudo].direction = pos.direction;
+                clientData.players[player.pseudo].path.push({x:pos.x,y:pos.y});
+            }
             return true;
         }
     }
@@ -181,19 +191,16 @@ function collision () {
  * @description On initialise les positions et directions de chaque joueur
  */
 function initGame () {
-    serverData.playing = true;
     var keys = Object.keys(clientData.players);
     for(var i=0;i<keys.length;i++){
         var pos = serverData.initial_position[i];
         clientData.players[keys[i]].position.x = pos.x;
         clientData.players[keys[i]].position.y = pos.y;
         clientData.players[keys[i]].direction = pos.direction;
-        clientData.players[keys[i]].motoSize.l = serverData.motoSize.l;
-        clientData.players[keys[i]].motoSize.w = serverData.motoSize.w;
+        clientData.players[keys[i]].path.length = 0;
         clientData.players[keys[i]].path.push({x:pos.x,y:pos.y});
     }
     app.io.broadcast('initialisation', normalize());
-    startGame();
 }
 
 /**
@@ -202,14 +209,22 @@ function initGame () {
  */
 
 function startGame () {
-    app.io.broadcast('start');
-    setInterval(function(){
-        iteration(function(){
-            var normalizeData = normalize();
-            app.io.broadcast('iteration', normalizeData);
-            collision();
-        });
-    },25);
+    serverData.playing=true;
+    clearInterval(refreshIntervalId);
+    setTimeout(function(){
+        app.io.broadcast('start');
+        refreshIntervalId = setInterval(function(){
+            iteration(function () {
+                var normalizeData = normalize();
+                app.io.broadcast('iteration', normalizeData);
+                collision();
+            });
+        },25);
+    },2000);
+}
+
+function stopGame (){
+    serverData.playing = false;
 }
 
 /**
@@ -282,6 +297,13 @@ app.io.route('newclient', function (req) {
  */
 app.io.route('rmclient', function (req) {
     removePlayer(serverData.pseudoMap[req.socket.id]);
+    app.io.broadcast('initialisation', normalize());
+    if(serverData.playing){
+        if(clientData.list.length < 2) {
+            serverData.waitingRoom = clientData.list;
+            stopGame();
+        }
+    }
 });
 /**
  * @route availablePseudo
@@ -322,13 +344,19 @@ app.io.route('login', function (req) {
 
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
-        if(serverData.waitingRoom.length>=0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
-            initGame(function () {
-                startGame();
-            });
-        } else {
+        if(!serverData.playing) {
+            initGame();
+        }
+        if(serverData.waitingRoom.length>=1 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
+            serverData.waitingRoom.length=0;
+            startGame();
+        }else if(serverData.playing && clientData.list.length <4){
+            app.io.broadcast('initialisation', normalize());
+            app.io.broadcast('start');
+        }
+        else {
             serverData.waitingRoom.push(req.data.pseudo);
-            console.log(serverData.waitingRoom);
+            console.log("waiting : "+ serverData.waitingRoom);
         }
     }
 })

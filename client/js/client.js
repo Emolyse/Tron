@@ -73,9 +73,10 @@ $(document).ready(function() {
     io.emit("newclient",joueur, function (resp) {
         loadLoginOverlay(resp);
     });
-    $(window).unload(function () {
+
+    window.onbeforeunload = function(){
         io.emit("rmclient",joueur);
-    });
+    };
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
@@ -232,7 +233,7 @@ $(document).ready(function() {
                 io.emit('changeDir', data, function (resp) {});
             });
 
-                document.addEventListener('keyup', function (evt) {
+                document.addEventListener('keydown', function (evt) {
                     if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
                         var key = evt.which;
                         var direction = "";
@@ -363,6 +364,7 @@ $(document).ready(function() {
             img.style.height = playersData.players[i].motoSize.w+"px";
             img.style.top = 0;
             img.style.left = 0;
+            img.className+="moto";
             img.title = "moto"+moto;
             img.id = "moto"+moto;
             document.getElementById("plateau").appendChild(img);
