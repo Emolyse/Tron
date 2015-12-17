@@ -2,6 +2,8 @@ var initGamma =false,initBeta=0;
 var joueur = {
     pseudo:localStorage.pseudo
 };
+initedMoto = false;
+
 var motoPath = '/client/img/motos/moto_';
 var motos = {
     blue        :{file: "blue.png", color: "blue"},
@@ -113,7 +115,7 @@ $(document).ready(function() {
         //On écoute si une moto est de nouveau disponible
         io.on("motoAvailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
-            document.querySelector("#motoSelector").innerHTML+="<img src=" + motoPath + motos[data].file +
+            $("#motoSelector").innerHTML+="<img src=" + motoPath + motos[data].file +
             " id='loginMoto"+data + "'" +
             " data-moto-id=" + data +
             " onclick=motoSelector(this)" + ">";
@@ -200,17 +202,28 @@ $(document).ready(function() {
         canvas.height = canvasSize;
         $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
-        io.on("initialisation",function (data) {
-            if(initMotos(deNormalize((data)))){
+        io.on("initialisation",function (data) { // Une partie commence
+            initedMoto = initMotos(deNormalize(data));
+            if(initedMoto){
                 drawPlayers(deNormalize(data));
             }
         });
 
         io.on("iteration",function(data){
-            //console.log(data);
-            drawPlayers(deNormalize(data));
+            if(initedMoto) {
+                drawPlayers(deNormalize(data));
+            }
+            else{
+                initMotos(deNormalize(data));
+            }
         });
         io.emit("ready",joueur);
+
+        io.on("newPlace", function(data){
+            if(data.players[joueur.pseudo].statut=='waiting'){
+                io.emit("ready",joueur);
+            }
+        });
 
         io.on('start', function(){
             gamma = 0;
@@ -300,20 +313,24 @@ $(document).ready(function() {
         ctx.clearRect(0,0,canvasSize,canvasSize);
         var players = data.players;
         $.each(players, function(i) {
-            var color = motos[players[i].moto].color;
-            ctx.beginPath();
-            ctx.moveTo(players[i].path[0].x,players[i].path[0].y);
-            var path = players[i].path;
-            $.each(path, function(j){
-                ctx.lineTo(path[j].x, path[j].y);
-            });
-            drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
-            ctx.strokeStyle = motos[players[i].moto].color;
-            if(players[i].statut == "dead"){
-                ctx.strokeStyle = "#aaa";
+            if (players[i].statut != "waiting") {
+                var color = motos[players[i].moto].color;
+                ctx.beginPath();
+                if (players[i].path.length > 0) {
+                    ctx.moveTo(players[i].path[0].x, players[i].path[0].y);
+                    var path = players[i].path;
+                    $.each(path, function (j) {
+                        ctx.lineTo(path[j].x, path[j].y);
+                    });
+                    ctx.strokeStyle = motos[players[i].moto].color;
+                    if (players[i].statut == "dead") {
+                        ctx.strokeStyle = "#aaa";
+                    }
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                drawMoto(players[i].position.x, players[i].position.y, players[i].moto, players[i].direction);
             }
-            ctx.lineWidth = 1;
-            ctx.stroke();
         });
     }
     /* Permet d'ajouter l'image de la moto*/
@@ -363,19 +380,20 @@ $(document).ready(function() {
     function initMotos(playersData){
         $(".moto").remove();
         $.each(playersData.players, function(i) {
-            console.log(playersData.players[i].motoSize);
-            var moto = playersData.players[i].moto;
-            var img = document.createElement("img");
-            img.src = motoPath+motos[moto].file;
-            img.style.position = "absolute";
-            img.style.width = playersData.players[i].motoSize.l+"px";
-            img.style.height = playersData.players[i].motoSize.w+"px";
-            img.style.top = 0;
-            img.style.left = 0;
-            img.className+="moto";
-            img.title = "moto"+moto;
-            img.id = "moto"+moto;
-            document.getElementById("plateau").appendChild(img);
+            if(playersData.players[i].statut != "waiting") {
+                var moto = playersData.players[i].moto;
+                var img = document.createElement("img");
+                img.src = motoPath + motos[moto].file;
+                img.style.position = "absolute";
+                img.style.width = playersData.players[i].motoSize.l + "px";
+                img.style.height = playersData.players[i].motoSize.w + "px";
+                img.style.top = 0;
+                img.style.left = 0;
+                img.className += "moto";
+                img.title = "moto" + moto;
+                img.id = "moto" + moto;
+                document.getElementById("plateau").appendChild(img);
+            }
         });
         return true;
     }

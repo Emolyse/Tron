@@ -26,7 +26,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:0,max:2,current:0},
+    capacity        : {min:2,max:3,current:0},
     pas             : 3,
     gameSize        : {w:500,l:500},
     pathLength      : 150,
@@ -108,7 +108,7 @@ function initPlayer(player){
             clientData.players[player.pseudo].motoSize.l = serverData.motoSize.l;
             clientData.players[player.pseudo].motoSize.w = serverData.motoSize.w;
             if(serverData.playing){
-                var pos = serverData.initial_position[serverData.capacity.current-1];
+                var pos = serverData.initial_position[serverData.capacity.current];
                 clientData.players[player.pseudo].position.x = pos.x;
                 clientData.players[player.pseudo].position.y = pos.y;
                 clientData.players[player.pseudo].direction = pos.direction;
@@ -133,8 +133,10 @@ function removePlayer(pseudo){
             if(clientData.list[p]==pseudo){
                 clientData.list.splice(p,1);
                 moto = clientData.players[pseudo].moto;
-                if(clientData.players[pseudo].statut=="invincible" || clientData.players[pseudo].statut=="playing") {
+                if(clientData.players[pseudo].statut=="invincible" || clientData.players[pseudo].statut=="playing" || clientData.players[pseudo].statut=="dead") {
+                    console.log("suppression d'un joueur de current");
                     serverData.capacity.current--;
+                    console.log("CURRENT "+ serverData.capacity.current);
                 }
                 delete clientData.players[pseudo];
                 if(moto){
@@ -339,6 +341,7 @@ function startGame () {
 }
 
 function stopGame (){
+    console.log("stoooop");
     serverData.playing = false;
     clearInterval(refreshIntervalId);
 }
@@ -413,13 +416,20 @@ app.io.route('newclient', function (req) {
  */
 app.io.route('rmclient', function (req) {
     removePlayer(serverData.pseudoMap[req.socket.id]);
-    app.io.broadcast('initialisation', normalize());
-    if(serverData.playing){
-        if(serverData.capacity.current <= serverData.capacity.min) {
-            serverData.waitingRoom = clientData.list;
+    if(serverData.playing) {
+        if (serverData.capacity.current < serverData.capacity.min) {
+            for  (var p in clientData.players) {
+                console.log(clientData.players[p].statut);
+                if (clientData.players[p].statut !== "waiting" && serverData.waitingRoom.indexOf(p)==-1) {
+                    serverData.waitingRoom.push(p);
+                }
+            }
+            serverData.capacity.current = 0;
             stopGame();
         }
     }
+    app.io.broadcast('initialisation', normalize());
+    app.io.broadcast('newPlace', normalize());
 });
 /**
  * @route availablePseudo
@@ -465,29 +475,43 @@ app.io.route('login', function (req) {
  */
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+        serverData.waitingRoom.push(req.data.pseudo);
         if(!serverData.playing) {
             if(initGame()){
                 if(serverData.waitingRoom.length>=serverData.capacity.min){//On a au moins capacity.min joueurs on peut commencer une partie
                     serverData.capacity.current = serverData.waitingRoom.length;
+                    console.log("current après initgame "+ serverData.capacity.current);
                     serverData.waitingRoom.length=0;
                     startGame();
                 } else {
-                    serverData.waitingRoom.push(req.data.pseudo);
+                    if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
+                        serverData.waitingRoom.push(req.data.pseudo);
+                    }
+                    console.log("non playing waiting "+ serverData.waitingRoom);
                 }
             }
-        } else if(clientData.list.length <=serverData.capacity.max){
+        } else if(serverData.capacity.current < serverData.capacity.max){
+
+            for(var p in serverData.waitingRoom){
+                if(serverData.waitingRoom[p]==req.data.pseudo){
+                    serverData.waitingRoom.splice(p,1);
+                }
+            }
             serverData.capacity.current++;
             clientData.players[req.data.pseudo].statut = "invincible";
-            clientData.players[req.data.pseudo].path = []
-            setTimeout(function () {
-                clientData.players[req.data.pseudo].path.push({x:clientData.players[req.data.pseudo].position.x,y:clientData.players[req.data.pseudo].position.y});
-                clientData.players[req.data.pseudo].statut = "playing";
-            },serverData.invincibleTime)
             app.io.broadcast('initialisation', normalize());
             app.io.broadcast('start');
+            setTimeout(function () {
+                clientData.players[req.data.pseudo].path = [];
+                clientData.players[req.data.pseudo].path.push({x:clientData.players[req.data.pseudo].position.x,y:clientData.players[req.data.pseudo].position.y});
+                clientData.players[req.data.pseudo].statut = "playing";
+            },serverData.invincibleTime);
         } else {
-            serverData.waitingRoom.push(req.data.pseudo);
-            console.log("waiting : "+ serverData.waitingRoom);
+            if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
+                serverData.waitingRoom.push(req.data.pseudo);
+            }
+            app.io.broadcast('initialisation', normalize());
+            console.log("waiting + playing  : "+ serverData.waitingRoom);
         }
     }
 })
