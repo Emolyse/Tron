@@ -29,6 +29,7 @@ var serverData = {
     pas             : 12,
     gameSize        : {w:2000,l:2000},
     grid            : [],
+    lineHeight      : 1,
     pathLength      : 150,
     motoSize        : { w: 30, l: 90},
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
@@ -87,7 +88,7 @@ function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
     clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting"};
-    console.log("Create",player.pseudo,socketId,clientData.list);
+    //console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
 /**
@@ -172,6 +173,12 @@ function removePlayer(pseudo){
  */
 function collision () {
     var g = serverData.grid;
+    //for (var i = 0; i < serverData.gameSize.w; i++) {
+    //    serverData.grid[i]=[];
+    //    for (var j = 0; j < serverData.gameSize.l; j++) {
+    //        serverData.grid[i][j]=-1;
+    //    }
+    //}
     for(var i in clientData.players){
         var player = clientData.players[i];
         var pos = player.position;
@@ -182,9 +189,10 @@ function collision () {
                 case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
                 case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
             }
-            for (var j in clientData.players[i].path) {
-                var point = clientData.players[i].path[j];
-            }
+            //for (var j in clientData.players[i].path) {
+            //    var point = clientData.players[i].path[j];
+            //    g[point.x][point.y] = "t";
+            //}
         } else if (player.statut=="invicible"){
             switch (player.direction) {
                 case 'n':
@@ -210,7 +218,6 @@ function collision () {
         }
 
     }
-    //console.log(clientData.players);
 }
 
  /**
@@ -382,7 +389,7 @@ app.io.route('ready', function (req) {
         if(!serverData.playing) {
             initGame();
         }
-        if(serverData.waitingRoom.length>=1 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
+        if(serverData.waitingRoom.length>=0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
             serverData.waitingRoom.length=0;
             startGame();
         }else if(serverData.playing && clientData.list.length <4){
