@@ -1,7 +1,6 @@
 var initGamma =false,initBeta=0;
 var joueur = {
-    pseudo:localStorage.pseudo,
-    moto:"blue"
+    pseudo:localStorage.pseudo
 };
 var motoPath = '/client/img/motos/moto_';
 var motos = {
@@ -74,9 +73,9 @@ $(document).ready(function() {
         loadLoginOverlay(resp);
     });
 
-    window.onbeforeunload = function(){
+    $(window).unload(function(){
         io.emit("rmclient",joueur);
-    };
+    });
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
@@ -107,9 +106,17 @@ $(document).ready(function() {
         "<input id='loginBTN' name='submit' type='submit' value='Jouer' />" +
         "</form></div></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
-        io.on("motoUnvailable", function (data) {
+        io.on("motoUnavailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
             $("#loginMoto"+data.moto).remove();
+        });
+        //On écoute si une moto est de nouveau disponible
+        io.on("motoAvailable", function (data) {
+            //Si un autre joueur a sélectionné une moto on la supprime de la liste
+            document.querySelector("#motoSelector").innerHTML+="<img src=" + motoPath + motos[data].file +
+            " id='loginMoto"+data + "'" +
+            " data-moto-id=" + data +
+            " onclick=motoSelector(this)" + ">";
         });
 
         //On effectue le traitement du clic sur Joueur
