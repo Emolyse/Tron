@@ -21,24 +21,27 @@ var clientData = {
 /**
  * @global serverData
  * @description Données nécessaire au fonctionnement du serveur
- * @type {{playing: boolean, capacity: number, pas: number, pathLength: number, motoSize: {w: number, l: number}, motos_available: string[], initial_position: string[], waitingRoom: Array, pseudoMap: {}, iteration}}
+ * @type {{playing: boolean, capacity: number, pas: number, pathLength: number, motoSize: {w: number, l: number},
+ *     motos_available: string[], initial_position: string[], waitingRoom: Array, pseudoMap: {}, iteration}}
  */
 var serverData = {
     playing         : false,
-    capacity        : 10,
-    pas             : 12,
-    gameSize        : {w:2000,l:2000},
-    grid            : [],
-    lineHeight      : 1,
+    capacity        : {min:2,max:3,current:0},
+    pas             : 3,
+    gameSize        : {w:500,l:500},
     pathLength      : 150,
-    motoSize        : { w: 30, l: 90},
-    motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos disponibles pour
-    initial_position:[{x:20,y:20,direction:'e'},{x:2000,y:1992,direction:'w'},
-                      {x:1992,y:0,direction:'s'},{x:8,y:2000,direction:'n'},
+    motoSize        : { w: 7, l: 23},//La largeur doit toujours être impair
+    motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos
+                                                                                                                       // disponibles
+                                                                                                                       // pour
+    initial_position:[{x:10,y:10,direction:'e'},{x:490,y:490,direction:'w'},
+                      {x:490,y:10,direction:'s'},{x:10,y:490,direction:'n'},
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},
-                      {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur de moto
+                      {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur
+                                                                        // de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
-    pseudoMap       : {}//On associe chaque pseudo à son sessionid
+    pseudoMap       : {},//On associe chaque pseudo à son sessionid
+    invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 }
 
 /****************************************
@@ -88,7 +91,7 @@ function createPlayer(player,socketId){
     serverData.pseudoMap[socketId]=player.pseudo;
     clientData.list.push(player.pseudo);
     clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting"};
-    //console.log("Create",player.pseudo,socketId,clientData.list);
+    console.log("Create",player.pseudo,socketId,clientData.list);
 }
 
 /**
@@ -105,7 +108,7 @@ function initPlayer(player){
             clientData.players[player.pseudo].motoSize.l = serverData.motoSize.l;
             clientData.players[player.pseudo].motoSize.w = serverData.motoSize.w;
             if(serverData.playing){
-                var pos = serverData.initial_position[clientData.list.length-1];
+                var pos = serverData.initial_position[serverData.capacity.current];
                 clientData.players[player.pseudo].position.x = pos.x;
                 clientData.players[player.pseudo].position.y = pos.y;
                 clientData.players[player.pseudo].direction = pos.direction;
@@ -130,13 +133,23 @@ function removePlayer(pseudo){
             if(clientData.list[p]==pseudo){
                 clientData.list.splice(p,1);
                 moto = clientData.players[pseudo].moto;
+                if(clientData.players[pseudo].statut=="invincible" || clientData.players[pseudo].statut=="playing" || clientData.players[pseudo].statut=="dead") {
+                    console.log("suppression d'un joueur de current");
+                    serverData.capacity.current--;
+                    console.log("CURRENT "+ serverData.capacity.current);
+                }
                 delete clientData.players[pseudo];
                 if(moto){
+                    var rmMoto = true;
                     for(var i=0;i<serverData.motos_available;i++){
-                        if(serverData.motos_available[i]===moto)
-                            break;
+                        if(serverData.motos_available[i]===moto) {
+                            rmMoto = false;break;
+                        }
                     }
-                    serverData.motos_available.push(moto);
+                    if(rmMoto) {
+                        serverData.motos_available.push(moto);
+                        app.io.broadcast("motoAvailable",moto);
+                    }
                 }
                 console.log("Remove",pseudo,clientData.list);
             }
@@ -171,14 +184,13 @@ function removePlayer(pseudo){
  * @name collision
  * @description Ondétecte les collisions
  */
+var iter = 0;
 function collision () {
-    var g = serverData.grid;
-    //for (var i = 0; i < serverData.gameSize.w; i++) {
-    //    serverData.grid[i]=[];
-    //    for (var j = 0; j < serverData.gameSize.l; j++) {
-    //        serverData.grid[i][j]=-1;
-    //    }
-    //}
+    iter++;
+    var grid = [];
+    for (var i = 0; i < serverData.gameSize.w; i++) {
+        grid[i]=[];
+    }
     for(var i in clientData.players){
         var player = clientData.players[i];
         var pos = player.position;
@@ -189,11 +201,77 @@ function collision () {
                 case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
                 case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
             }
-            //for (var j in clientData.players[i].path) {
-            //    var point = clientData.players[i].path[j];
-            //    g[point.x][point.y] = "t";
+
+            if(player.path.length > 0) {
+                var point = player.path[0];
+                var oldPoint, xmax,ymax;
+                var x,y;
+                var gridVal = grid[point.x][point.y];
+                if (typeof gridVal == "number") {
+                    clientData.players[clientData.list[gridVal]].statut = "dead";
+                }
+                grid[point.x][point.y] = "t";
+                //Dessine la trace dans la grille
+                for (var j=1;j<player.path.length-1;j++) {
+                    oldPoint = player.path[j-1];
+                    point = player.path[j];
+                    xmax= point.x-oldPoint.x;
+                    ymax= point.y-oldPoint.y;
+                    x = xmax>0?oldPoint.x+1:point.x;
+                    y = ymax>0?oldPoint.y+1:point.y;
+                    if(xmax==0){
+                        ymax = y+Math.abs(ymax);
+                        for (;y< ymax; y++) {
+                            gridVal = grid[point.x][y];
+                            if(typeof gridVal == "number"){
+                                clientData.players[clientData.list[gridVal]].statut = "dead";
+                            }
+                            grid[point.x][y]="t";
+                        }
+                    }else{
+                        xmax = x+Math.abs(xmax);
+                        for (;x<xmax; x++) {
+                            gridVal = grid[x][point.y];
+                            if(typeof gridVal == "number"){
+                                clientData.players[clientData.list[gridVal]].statut = "dead";
+                            }
+                            grid[x][point.y]="t";
+                        }
+                    }
+                }
+            }
+
+            //On dessine la moto dans la grille
+            if(player.statut!=="dead") {
+                var winit = (serverData.motoSize.w - 1) / 2, linit = serverData.motoSize.l-1;
+                var x=player.position.x,y= player.position.y,xmax= serverData.motoSize.w,ymax=serverData.motoSize.l;
+                switch (player.direction) {
+                    case 'n': x -= winit; y -= linit; xmax+=x;ymax+=y; break;
+                    case 'e': y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
+                    case 's': x -= winit; xmax+=x;ymax+=y;break;
+                    case 'w': x -= linit; y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
+                }
+                //console.log(x,xmax,y,ymax);
+                for(;x<xmax;x++){
+                    for (var j=y; j<ymax; j++) {
+                        var gridVal = grid[x][j];
+                        if(typeof gridVal == "number"){
+                            clientData.players[clientData.list[gridVal]].statut = "dead";
+                            player.statut = "dead";
+                        }else if(gridVal == "t"){
+                            player.statut = "dead";
+                        } else {
+                            grid[x][j] = clientData.list.indexOf(i);
+                        }
+                    }
+                }
+            }
+            //if(iter==100) {
+            //    app.io.broadcast("drawGrid", grid);
+            //    stopGame();
             //}
-        } else if (player.statut=="invicible"){
+
+        } else if (player.statut=="invincible"){
             switch (player.direction) {
                 case 'n':
                     if (pos.y < 0) {
@@ -216,8 +294,8 @@ function collision () {
                 player.path.shift();
             }
         }
-
     }
+    //console.log(clientData.players);
 }
 
  /**
@@ -239,6 +317,7 @@ function initGame () {
         player.statut = "playing";
     }
     app.io.broadcast('initialisation', normalize());
+    return true;
 }
 
 /**
@@ -258,11 +337,13 @@ function startGame () {
                 collision();
             });
         },25);
-    },2000);
+    },0);//#DEBUG
 }
 
 function stopGame (){
+    console.log("stoooop");
     serverData.playing = false;
+    clearInterval(refreshIntervalId);
 }
 
 /**
@@ -276,7 +357,7 @@ function iteration(callback){
         //On transforme ce switch en fonction setMove(player,pas)
         var player = clientData.players[p];
         var pasX = 0, pasY = 0;
-        if(player.statut=="playing" || player.statut=="invicible") {
+        if(player.statut=="playing" || player.statut=="invincible") {
             switch (player.direction) {
                 case "n":
                     player.position.y += -serverData.pas;
@@ -335,17 +416,25 @@ app.io.route('newclient', function (req) {
  */
 app.io.route('rmclient', function (req) {
     removePlayer(serverData.pseudoMap[req.socket.id]);
-    app.io.broadcast('initialisation', normalize());
-    if(serverData.playing){
-        if(clientData.list.length < 2) {
-            serverData.waitingRoom = clientData.list;
+    if(serverData.playing) {
+        if (serverData.capacity.current < serverData.capacity.min) {
+            for  (var p in clientData.players) {
+                console.log(clientData.players[p].statut);
+                if (clientData.players[p].statut !== "waiting" && serverData.waitingRoom.indexOf(p)==-1) {
+                    serverData.waitingRoom.push(p);
+                }
+            }
+            serverData.capacity.current = 0;
             stopGame();
         }
     }
+    app.io.broadcast('initialisation', normalize());
+    app.io.broadcast('newPlace', normalize());
 });
 /**
  * @route availablePseudo
- * @description Lorsqu'un client demande si un pseudo est disponible, si oui on lui réserve en l'ajoutant à clientData.list
+ * @description Lorsqu'un client demande si un pseudo est disponible, si oui on lui réserve en l'ajoutant à
+ *     clientData.list
  * @request {Object} player > {String} pseudo Identifiant du client
  * @response {Object} > {boolean} res Si le pseudo est disponible
  */
@@ -373,7 +462,7 @@ app.io.route('login', function (req) {
         if (!resp.res) {
             resp.error = "La moto" + req.data.moto + " n'est plus disponible";
         }
-        else app.io.broadcast('motoUnvailable', req.data);
+        else app.io.broadcast('motoUnavailable', req.data);
         req.io.respond(resp);
 
         
@@ -386,19 +475,43 @@ app.io.route('login', function (req) {
  */
 app.io.route('ready', function (req) {
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+        serverData.waitingRoom.push(req.data.pseudo);
         if(!serverData.playing) {
-            initGame();
-        }
-        if(serverData.waitingRoom.length>=0 && !serverData.playing){//On a au moins 2 joueurs on peut commencer une partie #DEBUG
-            serverData.waitingRoom.length=0;
-            startGame();
-        }else if(serverData.playing && clientData.list.length <4){
+            if(initGame()){
+                if(serverData.waitingRoom.length>=serverData.capacity.min){//On a au moins capacity.min joueurs on peut commencer une partie
+                    serverData.capacity.current = serverData.waitingRoom.length;
+                    console.log("current après initgame "+ serverData.capacity.current);
+                    serverData.waitingRoom.length=0;
+                    startGame();
+                } else {
+                    if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
+                        serverData.waitingRoom.push(req.data.pseudo);
+                    }
+                    console.log("non playing waiting "+ serverData.waitingRoom);
+                }
+            }
+        } else if(serverData.capacity.current < serverData.capacity.max){
+
+            for(var p in serverData.waitingRoom){
+                if(serverData.waitingRoom[p]==req.data.pseudo){
+                    serverData.waitingRoom.splice(p,1);
+                }
+            }
+            serverData.capacity.current++;
+            clientData.players[req.data.pseudo].statut = "invincible";
             app.io.broadcast('initialisation', normalize());
             app.io.broadcast('start');
-        }
-        else {
-            serverData.waitingRoom.push(req.data.pseudo);
-            console.log("waiting : "+ serverData.waitingRoom);
+            setTimeout(function () {
+                clientData.players[req.data.pseudo].path = [];
+                clientData.players[req.data.pseudo].path.push({x:clientData.players[req.data.pseudo].position.x,y:clientData.players[req.data.pseudo].position.y});
+                clientData.players[req.data.pseudo].statut = "playing";
+            },serverData.invincibleTime);
+        } else {
+            if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
+                serverData.waitingRoom.push(req.data.pseudo);
+            }
+            app.io.broadcast('initialisation', normalize());
+            console.log("waiting + playing  : "+ serverData.waitingRoom);
         }
     }
 })
@@ -418,45 +531,48 @@ app.io.route('changeDir', function(req){
         var loginJoueur = req.data.pseudo;
         var oldDir = clientData.players[loginJoueur].direction;
         var player = clientData.players[loginJoueur];
-        var directionJoueur = player.direction=='x'?'x':req.data.direction;
-        var pas = serverData.motoSize.l - serverData.motoSize.w;
-        if(oldDir=='w' || oldDir=='n') pas = -pas;
-        switch (directionJoueur){
-            case "n":
-                if(oldDir!=='s' && oldDir!=='n') {
-                    player.position.x += pas;
-                    if(player.statut=="playing")
-                        player.path.push({x:player.position.x,y:player.position.y});
-                    player.direction = directionJoueur;
-                }
-                break;
-            case "e":
-                if(oldDir!=='w' && oldDir!=='e') {
-                    player.position.y += pas;
-                    if(player.statut=="playing")
-                        player.path.push({x:player.position.x,y:player.position.y});
-                    player.direction = directionJoueur;
-                }
-                break;
-            case "s":
-                if(oldDir!=='n' && oldDir!=='s') {
-                    player.position.x += pas;
-                    if(player.statut=="playing")
-                        player.path.push({x:player.position.x,y:player.position.y});
-                    player.direction = directionJoueur;
-                }
-                break;
-            case "w":
-                if(oldDir!=='e' && oldDir!=='w') {
-                    player.position.y += pas;
-                    if(player.statut=="playing")
-                        player.path.push({x:player.position.x,y:player.position.y});
-                    player.direction = directionJoueur;
-                }
-                break;
+        if(player.statut=="invincible" || player.statut=="playing") {
+            var directionJoueur = req.data.direction;
+            var pas = serverData.motoSize.l - serverData.motoSize.w;
+            if (oldDir == 'w' || oldDir == 'n') pas = -pas;
+            switch (directionJoueur) {
+                case "n":
+                    if (oldDir !== 's' && oldDir !== 'n') {
+                        player.position.x += pas;
+                        if (player.statut == "playing")
+                            player.path.push({x: player.position.x, y: player.position.y});
+                        player.direction = directionJoueur;
+                    }
+                    break;
+                case "e":
+                    if (oldDir !== 'w' && oldDir !== 'e') {
+                        player.position.y += pas;
+                        if (player.statut == "playing")
+                            player.path.push({x: player.position.x, y: player.position.y});
+                        player.direction = directionJoueur;
+                    }
+                    break;
+                case "s":
+                    if (oldDir !== 'n' && oldDir !== 's') {
+                        player.position.x += pas;
+                        if (player.statut == "playing")
+                            player.path.push({x: player.position.x, y: player.position.y});
+                        player.direction = directionJoueur;
+                    }
+                    break;
+                case "w":
+                    if (oldDir !== 'e' && oldDir !== 'w') {
+                        player.position.y += pas;
+                        if (player.statut == "playing")
+                            player.path.push({x: player.position.x, y: player.position.y});
+                        player.direction = directionJoueur;
+                    }
+                    break;
+            }
         }
         // req contient l'id du joueur et la nouvelle direction
-        //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie aux autres client des infos du joueur
+        //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie
+        // aux autres client des infos du joueur
     }
 });
 
@@ -464,6 +580,10 @@ app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
 
+
+/**
+ *
+ */
 app.io.route('console', function(req){
     console.log(req.data);
 });

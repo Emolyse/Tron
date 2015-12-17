@@ -1,8 +1,9 @@
 var initGamma =false,initBeta=0;
 var joueur = {
-    pseudo:localStorage.pseudo,
-    moto:"blue"
+    pseudo:localStorage.pseudo
 };
+initedMoto = false;
+
 var motoPath = '/client/img/motos/moto_';
 var motos = {
     blue        :{file: "blue.png", color: "blue"},
@@ -74,9 +75,9 @@ $(document).ready(function() {
         loadLoginOverlay(resp);
     });
 
-    window.onbeforeunload = function(){
+    $(window).unload(function(){
         io.emit("rmclient",joueur);
-    };
+    });
     /****************************************
      *       DIALOGUE Client/Server         *
      ****************************************/
@@ -107,9 +108,17 @@ $(document).ready(function() {
         "<input id='loginBTN' name='submit' type='submit' value='Jouer' />" +
         "</form></div></div>";
         //On écoute si une moto est sélectionnée par un autre joueur
-        io.on("motoUnvailable", function (data) {
+        io.on("motoUnavailable", function (data) {
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
             $("#loginMoto"+data.moto).remove();
+        });
+        //On écoute si une moto est de nouveau disponible
+        io.on("motoAvailable", function (data) {
+            //Si un autre joueur a sélectionné une moto on la supprime de la liste
+            $("#motoSelector").innerHTML+="<img src=" + motoPath + motos[data].file +
+            " id='loginMoto"+data + "'" +
+            " data-moto-id=" + data +
+            " onclick=motoSelector(this)" + ">";
         });
 
         //On effectue le traitement du clic sur Joueur
@@ -193,17 +202,28 @@ $(document).ready(function() {
         canvas.height = canvasSize;
         $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
-        io.on("initialisation",function (data) {
-            if(initMotos(deNormalize((data)))){
+        io.on("initialisation",function (data) { // Une partie commence
+            initedMoto = initMotos(deNormalize(data));
+            if(initedMoto){
                 drawPlayers(deNormalize(data));
             }
         });
 
         io.on("iteration",function(data){
-            //console.log(data);
-            drawPlayers(deNormalize(data));
+            if(initedMoto) {
+                drawPlayers(deNormalize(data));
+            }
+            else{
+                initMotos(deNormalize(data));
+            }
         });
         io.emit("ready",joueur);
+
+        io.on("newPlace", function(data){
+            if(data.players[joueur.pseudo].statut=='waiting'){
+                io.emit("ready",joueur);
+            }
+        });
 
         io.on('start', function(){
             gamma = 0;
@@ -293,20 +313,24 @@ $(document).ready(function() {
         ctx.clearRect(0,0,canvasSize,canvasSize);
         var players = data.players;
         $.each(players, function(i) {
-            var color = motos[players[i].moto].color;
-            ctx.beginPath();
-            ctx.moveTo(players[i].path[0].x,players[i].path[0].y);
-            var path = players[i].path;
-            $.each(path, function(j){
-                ctx.lineTo(path[j].x, path[j].y);
-            });
-            drawMoto(players[i].position.x,players[i].position.y, players[i].moto, players[i].direction);
-            ctx.strokeStyle = motos[players[i].moto].color;
-            if(players[i].statut == "dead"){
-                ctx.strokeStyle = "#aaa";
+            if (players[i].statut != "waiting") {
+                var color = motos[players[i].moto].color;
+                ctx.beginPath();
+                if (players[i].path.length > 0) {
+                    ctx.moveTo(players[i].path[0].x, players[i].path[0].y);
+                    var path = players[i].path;
+                    $.each(path, function (j) {
+                        ctx.lineTo(path[j].x, path[j].y);
+                    });
+                    ctx.strokeStyle = motos[players[i].moto].color;
+                    if (players[i].statut == "dead") {
+                        ctx.strokeStyle = "#aaa";
+                    }
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                drawMoto(players[i].position.x, players[i].position.y, players[i].moto, players[i].direction);
             }
-            ctx.lineWidth = 1;
-            ctx.stroke();
         });
     }
     /* Permet d'ajouter l'image de la moto*/
@@ -356,27 +380,50 @@ $(document).ready(function() {
     function initMotos(playersData){
         $(".moto").remove();
         $.each(playersData.players, function(i) {
-            console.log(playersData.players[i].motoSize);
-            var moto = playersData.players[i].moto;
-            var img = document.createElement("img");
-            img.src = motoPath+motos[moto].file;
-            img.style.position = "absolute";
-            img.style.width = playersData.players[i].motoSize.l+"px";
-            img.style.height = playersData.players[i].motoSize.w+"px";
-            img.style.top = 0;
-            img.style.left = 0;
-            img.className+="moto";
-            img.title = "moto"+moto;
-            img.id = "moto"+moto;
-            document.getElementById("plateau").appendChild(img);
+            if(playersData.players[i].statut != "waiting") {
+                var moto = playersData.players[i].moto;
+                var img = document.createElement("img");
+                img.src = motoPath + motos[moto].file;
+                img.style.position = "absolute";
+                img.style.width = playersData.players[i].motoSize.l + "px";
+                img.style.height = playersData.players[i].motoSize.w + "px";
+                img.style.top = 0;
+                img.style.left = 0;
+                img.className += "moto";
+                img.title = "moto" + moto;
+                img.id = "moto" + moto;
+                document.getElementById("plateau").appendChild(img);
+            }
         });
         return true;
     }
 
-
+    io.on("drawGrid", function (data) {
+        var canGrid = document.createElement("canvas");
+        canGrid.id = "truc";
+        canGrid.width = 500;
+        canGrid.height = 500;
+        canGrid.style.position = "fixed";
+        canGrid.style.top = 0;
+        canGrid.style.left = 0;
+        canGrid.style.backgroundColor= "#fff";
+        document.body.appendChild(canGrid);
+        var ctxGrid = canGrid.getContext('2d');
+        console.log(data);
+        for (var i = 0; i < 500; i++) {
+            for (var j = 0; j < 500; j++) {
+                if(data[i][j]==undefined)
+                    ctxGrid.fillStyle = "black";
+                else if(data[i][j]=="t") ctxGrid.fillStyle = "red";
+                else ctxGrid.fillStyle = "blue";
+                ctxGrid.fillRect(i,j,1,1);
+            }
+        }
+    });
 
     // Tableau de position des motos sur le client ET sur le serveur
-    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
+    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les
+    // clients pour les mettre a jour
 });
 })(jQuery);
 
