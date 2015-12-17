@@ -380,10 +380,32 @@ $(document).ready(function() {
         return true;
     }
 
-
+    io.on("drawGrid", function (data) {
+        var canGrid = document.createElement("canvas");
+        canGrid.id = "truc";
+        canGrid.width = 500;
+        canGrid.height = 500;
+        canGrid.style.position = "fixed";
+        canGrid.style.top = 0;
+        canGrid.style.left = 0;
+        canGrid.style.backgroundColor= "#fff";
+        document.body.appendChild(canGrid);
+        var ctxGrid = canGrid.getContext('2d');
+        console.log(data);
+        for (var i = 0; i < 500; i++) {
+            for (var j = 0; j < 500; j++) {
+                if(data[i][j]==undefined)
+                    ctxGrid.fillStyle = "black";
+                else if(data[i][j]=="t") ctxGrid.fillStyle = "red";
+                else ctxGrid.fillStyle = "blue";
+                ctxGrid.fillRect(i,j,1,1);
+            }
+        }
+    });
 
     // Tableau de position des motos sur le client ET sur le serveur
-    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les clients pour les mettre a jour
+    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les
+    // clients pour les mettre a jour
 });
 })(jQuery);
 
