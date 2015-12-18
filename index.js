@@ -347,6 +347,40 @@ function stopGame (){
 }
 
 /**
+ * @name getPathLength
+ * @description Renvoie la longeur du chemin en entrée selon l'echelle de la grille de jeu
+ * @param path
+ * @returns {number} longueur du chemin
+ */
+function getPathLength(path){
+    var res = 0;
+    for(var i=1;i<path.length;i++){
+        res+= Math.abs(path[i].x-path[i-1])+Math.abs(path[i].y-path[i-1].y);
+    }
+    return res;
+}
+/**
+ * @name adjustPath
+ * @description Réajuste un chemin pour que sa taille corresponde à la limite
+ * @param dif
+ * @return {boolean} true when done
+ */
+function adjustPath(dif){
+    var difX = path[1].x-path[0].x;
+    var difY = path[1].y-path[0].y;
+    var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
+    if(newDif>0){//Si le premier segment est trop court on le supprime et on réajuste le segment suivant
+        dif = path.shift();
+        return adjustPath(Math.abs(newDif));
+    }
+    //On réajuste suivant l'axe x
+    if(difX!=0)
+        path[0].x+=dif*difX/Math.abs(difX);//Si difX<0 (West) on multiplie par -1
+    else//ou suivant l'axe y
+        path[0].y+=dif*difY/Math.abs(difY);//Si difY<0 (Nord) on multiplie par -1
+    return true;
+}
+/**
  * @name iteration
  * @description La fonction itération incrémente toutes les clientData.players[player].position déplaçant ainsi chaque
  * moto. Elle ajoute aussi le premier point de à chaque trace clientData.players[player].path
@@ -373,10 +407,21 @@ function iteration(callback){
                     break;
             }
         }
-        if(player.statut=="playing")
-            player.path.push({x:player.position.x,y:player.position.y});
-        if(player.path.length>serverData.pathLength){
-            player.path.shift();
+        if(player.statut=="playing") {
+            var newPoint = {x: player.position.x, y: player.position.y};
+            if(player.path.length>1){
+                var oldPoint = player.path[player.path.length-2];
+                //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
+                if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
+                    oldPoint=player.path.pop();
+                }
+            }
+            player.path.push(newPoint);
+        }
+        //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
+        var dif = getPathLength(player.path)- serverData.pathLength;
+        if( dif>0 && serverData>0){
+            dif = adjustPath(dif);
         }
         //
     }
