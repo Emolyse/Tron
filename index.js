@@ -182,7 +182,7 @@ function removePlayer(pseudo){
 
 /**
  * @name collision
- * @description Ondétecte les collisions
+ * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invicible il boucle sur plateau lorsqu'il touche une bordure
  */
 var iter = 0;
 function collision () {
