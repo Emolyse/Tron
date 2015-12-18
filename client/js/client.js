@@ -226,58 +226,71 @@ $(document).ready(function() {
         });
 
         io.on('start', function(){
-            gamma = 0;
-            beta = 0;
-            window.addEventListener('deviceorientation', function(event) {
-                var beta=0,gamma=0;
-                if(initGamma){
-                    initGamma = event.gamma;
-                    initBeta = event.beta;
-                }else {
-                    gamma = event.gamma-initGamma;
-                    beta = event.beta-initBeta;
-                }
-                var direction = "";
-                if(gamma > 25){
-                    direction = "e";
-                }
-                if(gamma < -25){
-                    direction = "w";
-                }
-                if(beta > 25){
-                    direction = "s";
-                }
-                if(beta < -25){
-                    direction = "n";
-                }
-                var data = {pseudo: joueur.pseudo, direction: direction};
-                io.emit('changeDir', data, function (resp) {});
-            });
-
-                document.addEventListener('keydown', function (evt) {
-                    if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
-                        var key = evt.which;
-                        var direction = "";
-                        if(key == 37){
-                            direction = "w";
-                        }
-                        if(key == 38){
-                            direction = "n";
-                        }
-                        if(key == 39){
-                            direction = "e";
-                        }
-                        if(key == 40){
-                            direction = "s";
-                        }
-                        var data = {pseudo: joueur.pseudo, direction: direction};
-                        io.emit('changeDir', data, function (resp) {
-                        });
+            if(DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', function (event) {
+                    var beta = 0, gamma = 0;
+                    if (initGamma) {
+                        initGamma = event.gamma;
+                        initBeta = event.beta;
+                    } else {
+                        gamma = event.gamma - initGamma;
+                        beta = event.beta - initBeta;
                     }
+                    var direction = "";
+                    if (gamma > 25) {
+                        direction = "e";
+                    }
+                    if (gamma < -25) {
+                        direction = "w";
+                    }
+                    if (beta > 25) {
+                        direction = "s";
+                    }
+                    if (beta < -25) {
+                        direction = "n";
+                    }
+                    var data = {pseudo: joueur.pseudo, direction: direction};
+                    io.emit('changeDir', data, function (resp) {
+                    });
                 });
+            }else{
+                if( navigator.userAgent.match(/Android/i)
+                    || navigator.userAgent.match(/webOS/i)
+                    || navigator.userAgent.match(/iPhone/i)
+                    || navigator.userAgent.match(/iPad/i)
+                    || navigator.userAgent.match(/iPod/i)
+                    || navigator.userAgent.match(/BlackBerry/i)
+                    || navigator.userAgent.match(/Windows Phone/i)
+                ){
+                    //On ajoute des touches de controle virtuelle
+                    screen.orientation.lock("landscape");
+                }
+            }
+
             //} else {
             //    // Le navigateur ne supporte pas l'événement deviceorientation ou on est sur un pc
             //}
+        });
+        document.addEventListener('keydown', function (evt) {
+            if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
+                var key = evt.which;
+                var direction = "";
+                if(key == 37){
+                    direction = "w";
+                }
+                if(key == 38){
+                    direction = "n";
+                }
+                if(key == 39){
+                    direction = "e";
+                }
+                if(key == 40){
+                    direction = "s";
+                }
+                var data = {pseudo: joueur.pseudo, direction: direction};
+                io.emit('changeDir', data, function (resp) {
+                });
+            }
         });
     }
 
