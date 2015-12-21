@@ -182,7 +182,7 @@ function removePlayer(pseudo){
 
 /**
  * @name collision
- * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invicible il boucle sur plateau lorsqu'il touche une bordure
+ * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invincible il boucle sur plateau lorsqu'il touche une bordure
  */
 var iter = 0;
 function collision () {
@@ -194,6 +194,7 @@ function collision () {
     for(var i in clientData.players){
         var player = clientData.players[i];
         var pos = player.position;
+        //On détecte les collisions avec les bordures
         if(player.statut=="playing") {
             switch (player.direction) {
                 case 'n': if (pos.y - serverData.motoSize.l < 0) player.statut = "dead"; break;
@@ -201,7 +202,10 @@ function collision () {
                 case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
                 case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
             }
+        }
 
+        //Dessine la trace dans la grille
+        if(player.statut=="playing" || player.statut=="dead"){
             if(player.path.length > 0) {
                 var point = player.path[0];
                 var oldPoint, xmax,ymax;
@@ -211,7 +215,6 @@ function collision () {
                     clientData.players[clientData.list[gridVal]].statut = "dead";
                 }
                 grid[point.x][point.y] = "t";
-                //Dessine la trace dans la grille
                 for (var j=1;j<player.path.length-1;j++) {
                     oldPoint = player.path[j-1];
                     point = player.path[j];
@@ -240,38 +243,40 @@ function collision () {
                     }
                 }
             }
+        }
 
-            //On dessine la moto dans la grille
-            if(player.statut!=="dead") {
-                var winit = (serverData.motoSize.w - 1) / 2, linit = serverData.motoSize.l-1;
-                var x=player.position.x,y= player.position.y,xmax= serverData.motoSize.w,ymax=serverData.motoSize.l;
-                switch (player.direction) {
-                    case 'n': x -= winit; y -= linit; xmax+=x;ymax+=y; break;
-                    case 'e': y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
-                    case 's': x -= winit; xmax+=x;ymax+=y;break;
-                    case 'w': x -= linit; y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
-                }
-                //console.log(x,xmax,y,ymax);
-                for(;x<xmax;x++){
-                    for (var j=y; j<ymax; j++) {
-                        var gridVal = grid[x][j];
-                        if(typeof gridVal == "number"){
-                            clientData.players[clientData.list[gridVal]].statut = "dead";
-                            player.statut = "dead";
-                        }else if(gridVal == "t"){
-                            player.statut = "dead";
-                        } else {
-                            grid[x][j] = clientData.list.indexOf(i);
-                        }
+        //On dessine la moto dans la grille
+        if(player.statut=="playing") {
+            var winit = (serverData.motoSize.w - 1) / 2, linit = serverData.motoSize.l-1;
+            var x=player.position.x,y= player.position.y,xmax= serverData.motoSize.w,ymax=serverData.motoSize.l;
+            switch (player.direction) {
+                case 'n': x -= winit; y -= linit; xmax+=x;ymax+=y; break;
+                case 'e': y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
+                case 's': x -= winit; xmax+=x;ymax+=y;break;
+                case 'w': x -= linit; y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
+            }
+            //console.log(x,xmax,y,ymax);
+            for(;x<xmax;x++){
+                for (var j=y; j<ymax; j++) {
+                    var gridVal = grid[x][j];
+                    if(typeof gridVal == "number"){
+                        clientData.players[clientData.list[gridVal]].statut = "dead";
+                        player.statut = "dead";
+                    }else if(gridVal == "t"){
+                        player.statut = "dead";
+                    } else {
+                        grid[x][j] = clientData.list.indexOf(i);
                     }
                 }
             }
-            //if(iter==100) {
-            //    app.io.broadcast("drawGrid", grid);
-            //    stopGame();
-            //}
+        }
 
-        } else if (player.statut=="invincible"){
+        //if(iter==100) {
+        //    app.io.broadcast("drawGrid", grid);
+        //    stopGame();
+        //}
+        //On gère qu'un statut invincible boucle sur les bordures
+        if (player.statut=="invincible"){
             switch (player.direction) {
                 case 'n':
                     if (pos.y < 0) {
@@ -347,6 +352,40 @@ function stopGame (){
 }
 
 /**
+ * @name getPathLength
+ * @description Renvoie la longeur du chemin en entrée selon l'echelle de la grille de jeu
+ * @param path
+ * @returns {number} longueur du chemin
+ */
+function getPathLength(path){
+    var res = 0;
+    for(var i=1;i<path.length;i++){
+        res+= Math.abs(path[i].x-path[i-1])+Math.abs(path[i].y-path[i-1].y);
+    }
+    return res;
+}
+/**
+ * @name adjustPath
+ * @description Réajuste un chemin pour que sa taille corresponde à la limite
+ * @param dif
+ * @return {boolean} true when done
+ */
+function adjustPath(dif){
+    var difX = path[1].x-path[0].x;
+    var difY = path[1].y-path[0].y;
+    var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
+    if(newDif>0){//Si le premier segment est trop court on le supprime et on réajuste le segment suivant
+        dif = path.shift();
+        return adjustPath(Math.abs(newDif));
+    }
+    //On réajuste suivant l'axe x
+    if(difX!=0)
+        path[0].x+=dif*difX/Math.abs(difX);//Si difX<0 (West) on multiplie par -1
+    else//ou suivant l'axe y
+        path[0].y+=dif*difY/Math.abs(difY);//Si difY<0 (Nord) on multiplie par -1
+    return true;
+}
+/**
  * @name iteration
  * @description La fonction itération incrémente toutes les clientData.players[player].position déplaçant ainsi chaque
  * moto. Elle ajoute aussi le premier point de à chaque trace clientData.players[player].path
@@ -373,10 +412,21 @@ function iteration(callback){
                     break;
             }
         }
-        if(player.statut=="playing")
-            player.path.push({x:player.position.x,y:player.position.y});
-        if(player.path.length>serverData.pathLength){
-            player.path.shift();
+        if(player.statut=="playing") {
+            var newPoint = {x: player.position.x, y: player.position.y};
+            if(player.path.length>1){
+                var oldPoint = player.path[player.path.length-2];
+                //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
+                if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
+                    oldPoint=player.path.pop();
+                }
+            }
+            player.path.push(newPoint);
+        }
+        //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
+        var dif = getPathLength(player.path)- serverData.pathLength;
+        if( dif>0 && serverData>0){
+            dif = adjustPath(dif);
         }
         //
     }
