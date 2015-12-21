@@ -226,6 +226,7 @@ $(document).ready(function() {
         });
 
         io.on('start', function(){
+
             if(DeviceOrientationEvent) {
                 window.addEventListener('deviceorientation', function (event) {
                     var beta = 0, gamma = 0;
@@ -249,9 +250,11 @@ $(document).ready(function() {
                     if (beta < -25) {
                         direction = "n";
                     }
+
                     var data = {pseudo: joueur.pseudo, direction: direction};
                     io.emit('changeDir', data, function (resp) {
                     });
+
                 });
             }else{
                 if( navigator.userAgent.match(/Android/i)
@@ -264,13 +267,39 @@ $(document).ready(function() {
                 ){
                     //On ajoute des touches de controle virtuelle
                     screen.orientation.lock("landscape");
+
+                    $('main').append('<div class="fleches">' +
+                    '<div class="hautBas">' +
+                    '<div id="north"><img src="/client/img/arrow.png" /></div>' +
+                    '<div id="south"><img src="/client/img/arrow.png" /></div>' +
+                    '</div>' +
+                    '<div class="droiteGauche">' +
+                    '<div id="west"><img src="/client/img/arrow.png" /></div>' +
+                    '<div id="east"><img src="/client/img/arrow.png" /></div>' +
+                    '</div>' +
+                    '<div>');
+
+                    var direction = "";
+                    $('#north').on('touchstart', function(){
+                        direction = "n";
+                    });
+                    $('#south').on('touchstart', function(){
+                        direction = "s";
+                    });
+                    $('#west').on('touchstart', function(){
+                        direction = "w";
+                    });
+                    $('#east').on('touchstart', function(){
+                        direction = "e";
+                    });
+
+                    var data = {pseudo: joueur.pseudo, direction: direction};
+                    io.emit('changeDir', data, function (resp) {
+                    });
                 }
             }
-
-            //} else {
-            //    // Le navigateur ne supporte pas l'événement deviceorientation ou on est sur un pc
-            //}
         });
+
         document.addEventListener('keydown', function (evt) {
             if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
                 var key = evt.which;
