@@ -174,7 +174,7 @@ form#chat > .input-container > .submit-msg{
 
 #plateau{
     position: relative;
-    margin: auto;
+    margin: 10px auto;
 }
 
 /****************************

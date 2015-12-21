@@ -49,6 +49,7 @@ var lastDataMsg = {pseudo:""};
 var ctx;
 var canvas;
 var canvasSize;
+var marginCanvas = 10;
 
 
 /*****************************
@@ -185,6 +186,9 @@ $(document).ready(function() {
         plateau = document.createElement("div");
         plateau.id = "plateau";
         canvasSize = Math.min(innerHeight, innerWidth);
+        if(canvasSize==innerHeight){
+            canvasSize-=marginCanvas*2;
+        }
         plateau.style.width =  canvasSize+"px";
         plateau.style.height = canvasSize+"px";
         plateau.style.overflow = "hidden";
@@ -439,6 +443,9 @@ $(document).ready(function() {
     /*Redimentionne le canvas quand la taille de la fenêtre change*/
     $( window ).resize(function() {
         canvasSize = Math.min(innerHeight, innerWidth);
+        if(canvasSize==innerHeight){
+            canvasSize-=marginCanvas*2;
+        }
         var plateau = document.getElementById("plateau");
         plateau.style.height = canvasSize+"px";
         plateau.style.width = canvasSize+"px";
