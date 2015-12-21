@@ -524,9 +524,6 @@ app.io.route('ready', function (req) {
  *      > {char} direction Nouvelle direction du client
  */
 app.io.route('changeDir', function(req){
-    //On vérifie que le client est le bon et qu'il n'a pas changé son pseudo via la console
-    //console.log(req.data);
-    //console.log(serverData.pseudoMap,req.socket.id);
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         var loginJoueur = req.data.pseudo;
         var oldDir = clientData.players[loginJoueur].direction;
@@ -570,9 +567,6 @@ app.io.route('changeDir', function(req){
                     break;
             }
         }
-        // req contient l'id du joueur et la nouvelle direction
-        //req.io.broadcast("changeDir", "Action du joueur " + req.data.pseudo + " : " + req.data.direction); // envoie
-        // aux autres client des infos du joueur
     }
 });
 
