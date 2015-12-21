@@ -182,45 +182,33 @@ form#chat > .input-container > .submit-msg{
  ***************************/
 .fleches{
     position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
 }
 .fleches .hautBas{
-    position: fixed;
+    position: absolute;
     right: 10px;
-    bottom: 0;
+    bottom: 10px;
     display: flex;
     flex-flow: column nowrap;
-    justify-content: center;
-    height: 100%;
-    width: 25%;
+    justify-content: flex-end;
     align-items: center;
 }
 .fleches .droiteGauche{
     position: fixed;
     left: 10px;
-    bottom: 0;
+    bottom: 10px;
     display: flex;
     flex-flow: row nowrap;
     justify-content: center;
-    width: 25%;
-    height: 100%;
-    align-items: center;
+    align-items: flex-start;
 }
-.fleches #north, .fleches #south{
+.fleches img{
     width: 80px;
     height: 80px;
-}
-.fleches #east, .fleches #west{
-    width: 80px;
-    height: 80px;
-}
-.fleches #north img, .fleches #south img, .fleches #east img, .fleches #west img{
-    width: 100%;
-    height: 100%;
-}
-.fleches #north{
-
+    opacity: 0.5;
 }
 .fleches #south{
     -webkit-transform: rotate(180deg);

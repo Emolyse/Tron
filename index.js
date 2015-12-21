@@ -26,7 +26,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:1,max:3,current:0},
+    capacity        : {min:2,max:3,current:0},
     pas             : 3,
     gameSize        : {w:500,l:500},
     pathLength      : 150,
@@ -373,7 +373,7 @@ function getPathLength(path){
  * @param dif
  * @return {boolean} true when done
  */
-function adjustPath(path,dif,player){
+function adjustPath(path,dif){
     var difX = path[1].x-path[0].x;
     var difY = path[1].y-path[0].y;
     var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
@@ -404,7 +404,7 @@ function pathHandler(player){
     //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
     var dif = getPathLength(player.path)- serverData.pathLength;
     if( dif>0 && serverData.pathLength>0){
-        return adjustPath(player.path,dif,player);
+        return adjustPath(player.path,dif);
     }
     return false;
 }

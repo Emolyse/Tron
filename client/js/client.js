@@ -219,104 +219,76 @@ $(document).ready(function() {
         });
 
         io.on('start', function(){
-
-            if(DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', function (event) {
-                    var beta = 0, gamma = 0;
-                    if (initGamma) {
-                        initGamma = event.gamma;
-                        initBeta = event.beta;
-                    } else {
-                        gamma = event.gamma - initGamma;
-                        beta = event.beta - initBeta;
-                    }
-                    var direction = "";
-                    if (gamma > 25) {
-                        direction = "e";
-                    }
-                    if (gamma < -25) {
-                        direction = "w";
-                    }
-                    if (beta > 25) {
-                        direction = "s";
-                    }
-                    if (beta < -25) {
-                        direction = "n";
-                    }
-
-                    var data = {pseudo: joueur.pseudo, direction: direction};
-                    io.emit('changeDir', data, function (resp) {
-                    });
-
-                });
-            }else{
-                if( navigator.userAgent.match(/Android/i)
-                    || navigator.userAgent.match(/webOS/i)
-                    || navigator.userAgent.match(/iPhone/i)
-                    || navigator.userAgent.match(/iPad/i)
-                    || navigator.userAgent.match(/iPod/i)
-                    || navigator.userAgent.match(/BlackBerry/i)
-                    || navigator.userAgent.match(/Windows Phone/i)
-                ){
-                    //On ajoute des touches de controle virtuelle
-                    screen.orientation.lock("landscape");
-
-                    $('main').append('<div class="fleches">' +
-                    '<div class="hautBas">' +
-                    '<div id="north"><img src="/client/img/arrow.png" /></div>' +
-                    '<div id="south"><img src="/client/img/arrow.png" /></div>' +
-                    '</div>' +
-                    '<div class="droiteGauche">' +
-                    '<div id="west"><img src="/client/img/arrow.png" /></div>' +
-                    '<div id="east"><img src="/client/img/arrow.png" /></div>' +
-                    '</div>' +
-                    '<div>');
-
-                    var direction = "";
-                    $('#north').on('touchstart', function(){
-                        direction = "n";
-                    });
-                    $('#south').on('touchstart', function(){
-                        direction = "s";
-                    });
-                    $('#west').on('touchstart', function(){
-                        direction = "w";
-                    });
-                    $('#east').on('touchstart', function(){
-                        direction = "e";
-                    });
-
-                    var data = {pseudo: joueur.pseudo, direction: direction};
-                    io.emit('changeDir', data, function (resp) {
-                    });
-                }
-            }
+            window.addEventListener('deviceorientation', orientationHandler,true);
+            initVirtualControl();
+            document.addEventListener('keydown', controlKeyHandler);
         });
 
-        document.addEventListener('keydown', function (evt) {
-            if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
-                var key = evt.which;
-                var direction = "";
-                if(key == 37){
-                    direction = "w";
-                }
-                if(key == 38){
-                    direction = "n";
-                }
-                if(key == 39){
-                    direction = "e";
-                }
-                if(key == 40){
-                    direction = "s";
-                }
-                var data = {pseudo: joueur.pseudo, direction: direction};
-                io.emit('changeDir', data, function (resp) {
-                });
-            }
-        });
     }
 
 
+    ////////////   CONTROLS  /////////////////
+    function orientationHandler(event){
+        var beta = 0, gamma = 0;
+        if (initGamma) {
+            initGamma = event.gamma;
+            initBeta = event.beta;
+        } else {
+            gamma = event.gamma - initGamma;
+            beta = event.beta - initBeta;
+        }
+        var direction = "";
+        if (gamma > 25) { direction = "e"; }
+        if (gamma < -25) { direction = "w"; }
+        if (beta > 25) { direction = "s"; }
+        if (beta < -25) { direction = "n"; }
+
+        var data = {pseudo: joueur.pseudo, direction: direction};
+        io.emit('changeDir', data);
+    }
+
+    function controlKeyHandler(evt){
+        if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
+            var key = evt.which;
+            var direction = "";
+            if(key == 37){ direction = "w"; }
+            if(key == 38){ direction = "n"; }
+            if(key == 39){ direction = "e"; }
+            if(key == 40){ direction = "s"; }
+            var data = {pseudo: joueur.pseudo, direction: direction};
+            io.emit('changeDir', data);
+        }
+    }
+
+    function initVirtualControl(){
+        //Sur les mobiles on ajoute des touches tactiles virtuelles
+        if( navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
+            || navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
+            || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/BlackBerry/i)
+            || navigator.userAgent.match(/Windows Phone/i)
+        ){
+            //On ajoute des touches de controle virtuelle
+            try{
+                screen.orientation.lock('landscape-secondary');
+            } catch (e){
+                console.log(e);
+            }
+            var $fleches = $('<div class="fleches">' +
+                '<div class="hautBas">' +
+                    '<img id="north" data-direction="n" src="/client/img/arrow.png">' +
+                    '<img id="south" data-direction="s" src="/client/img/arrow.png">' +
+                '<div class="droiteGauche">' +
+                    '<img id="west" data-direction="w" src="/client/img/arrow.png">' +
+                    '<img id="east" data-direction="e" src="/client/img/arrow.png">' +
+                '</img>');
+            $('main').append($fleches);
+            //On ajoute les listener pour les appui tactiles
+            $('#north, #south, #west, #east').on('touchstart click', function(e){
+                var data = {pseudo: joueur.pseudo, direction: e.target.dataset.direction};
+                io.emit('changeDir', data);
+            });
+        }
+    }
     ////////////    INGAME   /////////////////
 
     /** Récupération des infos d'un joueur **/
@@ -414,16 +386,17 @@ $(document).ready(function() {
     }
 
     function addMessageElt(data,perso){
-        console.log(lastDataMsg.pseudo,data.pseudo);
+        var container = document.querySelector(".msg-container")
         if(lastDataMsg.pseudo == data.pseudo){
             lastDataMsg.elt.querySelector(".message-msg").innerHTML+='<br>'+data.msg;
             lastDataMsg.elt.querySelector(".date").innerHTML=data.date;
         } else {
             var msg = getMessageElement(data,perso);
             lastDataMsg = data;
-            document.querySelector(".msg-container").appendChild(msg);
+            container.appendChild(msg);
             lastDataMsg.elt = msg;
         }
+        $(container).animate({scrollTop : container.scrollHeight-container.clientHeight},300);
     }
 
     function loadChat(){
@@ -447,6 +420,7 @@ $(document).ready(function() {
             date = (heure<10?"0":"")+heure+":"+(min<10?"0":"")+min+":"+(sec<10?"0":"")+sec;
             var data = {pseudo:joueur.pseudo,msg:$("#input-msg").val(),date:date,color:motos[joueur.moto].color};
             if(data.msg.length>0){
+                $("#input-msg").val("");
                 io.emit('chat',data,function(rep){
                     if(rep.error){
                         //Indiquer un problème (ex : flood)
