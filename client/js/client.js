@@ -43,6 +43,8 @@ var playersData = {
 /*Variable qui sert de test utilisée dans le redimentionnement de la fenêtre*/
 var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x: 0.25, y: 0.25}, direction: 's', moto: "blue", path: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10},{x: 0.25, y: 0.25}]}, "proxy": {position: {x: 0.5, y: 0.05}, direction: 'w', moto: "red", path: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}, {x: 0.5, y: 0.05}]}}};
 
+var lastDataMsg = {pseudo:""};
+
 /* Variables de l'initialisation du canvas */
 var ctx;
 var canvas;
@@ -57,15 +59,6 @@ var canvasSize;
     $("#motoSelector>img.selected").removeClass("selected");
     $(target).addClass("selected");
  }
-
-function setInvalidInputMsg(e,msg) {
-    if (e.value.search(new RegExp(input.getAttribute('pattern'))) >= 0) {
-        e.setCustomValidity('');
-    } else {
-        e.setCustomValidity(msg);
-    }
-}
- // <<<<<<<<<<<<<<<<<<<<<<<<<<
 
 (function($) {
 $(document).ready(function() {
@@ -162,7 +155,6 @@ $(document).ready(function() {
         });
     }
 
-
     /** Démarrage de Tron **/
     function login() {
         //Une fois les données reccueillie on signal au serveur que notre profil peut etre créé
@@ -177,6 +169,7 @@ $(document).ready(function() {
                     $overlay.animate({height: 0}, 400, null, function () {
                         $overlay.remove();
                         loadGame();
+                        loadChat();
                     });
                 }
             }
@@ -374,6 +367,67 @@ $(document).ready(function() {
     }
 
 
+    /****************************************
+     *                  CHAT                *
+     ****************************************/
+    function getMessageElement(data,perso){
+        var message = document.createElement("div");
+        message.classList.add("message");
+        var pseudo = data.pseudo;
+        if(perso){
+            message.classList.add("perso");
+            pseudo  = "You";
+        }
+        message.innerHTML = '<div class="pseudo" style="color: '+data.color+'">'+pseudo+'</div>' +
+            '<div class="message-msg">'+data.msg+'</div>' +
+            '<div class="date">'+data.date+'</div>';
+        return message;
+    }
+
+    function addMessageElt(data,perso){
+        console.log(lastDataMsg.pseudo,data.pseudo);
+        if(lastDataMsg.pseudo == data.pseudo){
+            lastDataMsg.elt.querySelector(".message-msg").innerHTML+='<br>'+data.msg;
+            lastDataMsg.elt.querySelector(".date").innerHTML=data.date;
+        } else {
+            var msg = getMessageElement(data,perso);
+            lastDataMsg = data;
+            document.querySelector(".msg-container").appendChild(msg);
+            lastDataMsg.elt = msg;
+        }
+    }
+
+    function loadChat(){
+        io.on('chat', function (data) {
+            addMessageElt(data,false)
+        });
+        var chat = document.createElement("form");
+        chat.id = "chat";
+        chat.innerHTML = '<section class="msg-container"></section>' +
+                            '<section class="input-container">' +
+                            '<input type="text" id="input-msg">' +
+                            '<input type="submit" id="submit-msg" value=">">' +
+                            '</section>';
+        document.querySelector("main").appendChild(chat);
+        chat.addEventListener('submit',function (e) {
+            e.preventDefault();
+            var date = new Date();
+            var heure = date.getHours();
+            var min   = date.getMinutes();
+            var sec   = date.getSeconds();
+            date = (heure<10?"0":"")+heure+":"+(min<10?"0":"")+min+":"+(sec<10?"0":"")+sec;
+            var data = {pseudo:joueur.pseudo,msg:$("#input-msg").val(),date:date,color:motos[joueur.moto].color};
+            if(data.msg.length>0){
+                io.emit('chat',data,function(rep){
+                    if(rep.error){
+                        //Indiquer un problème (ex : flood)
+                    } else {
+                        addMessageElt(data,true);
+                    }
+                });
+            }
+        });
+    }
 
     /****************************************
      *       FONCTIONS UTILES               *

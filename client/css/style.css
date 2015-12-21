@@ -98,6 +98,73 @@ html, body{
 
 
 /****************************
+ *           CHAT           *
+ ***************************/
+
+form#chat{
+    position: fixed;
+    top: 0;
+    right: 0;
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: space-between;
+    padding: 5px;
+    height: 100%;
+}
+form#chat > .msg-container {
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: flex-start;
+    height: 100%;
+    overflow-y: auto;
+}
+form#chat > .msg-container > .message{
+    padding: 5px;
+    margin: 0 30px 5px 0;
+    background-color: white;
+    box-shadow: 1px 2px 3px darkgrey;
+    transition: opacity 300ms, transform 300ms;
+    -webkit-animation: fadeInLeft 300ms;
+    animation: fadeInLeft 300ms;
+}
+
+form#chat > .msg-container > .message.perso{
+    margin: 0 0 5px 30px;
+    -webkit-animation: fadeInBot 300ms;
+    animation: fadeInBot 300ms;
+}
+@-webkit-keyframes fadeInLeft {
+    0%{ opacity:0; -webkit-transform: translateX(-50px); }
+    100%{ opacity:1; -webkit-transform: translateX(0); }
+}
+@keyframes fadeInLeft {
+    0%{ opacity:0; transform: translateX(-50px); }
+    100%{ opacity:1; transform: translateX(0); }
+}
+@-webkit-keyframes fadeInBot {
+    0%{ opacity:0; -webkit-transform: translateY(50px); }
+    100%{ opacity:1; -webkit-transform: translateY(0); }
+}
+@keyframes fadeInBot {
+    0%{ opacity:0; transform: translateY(50px); }
+    100%{ opacity:1; transform: translateY(0); }
+}
+
+form#chat > .input-container {
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    height:50px;
+}
+
+form#chat > .input-container > .input-msg{
+    height: 100%;
+}
+form#chat > .input-container > .submit-msg{
+    height: 100%;
+}
+
+/****************************
  *          CANVAS          *
  ***************************/
 #tronCanvas{

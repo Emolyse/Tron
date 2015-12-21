@@ -42,7 +42,9 @@ var serverData = {
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     pseudoMap       : {},//On associe chaque pseudo à son sessionid
     invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
-}
+};
+
+var chatData = [];
 
 /****************************************
  *          Routage Client              *
@@ -182,7 +184,8 @@ function removePlayer(pseudo){
 
 /**
  * @name collision
- * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invincible il boucle sur plateau lorsqu'il touche une bordure
+ * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invincible il boucle sur
+ *     plateau lorsqu'il touche une bordure
  */
 var iter = 0;
 function collision () {
@@ -630,9 +633,31 @@ app.listen(3001, function () {
     console.log("Listening localhost:3001");
 });
 
+/**
+ * @route chat
+ * @description gestion du chat
+ * @request {Object}
+ *      > {String} pseudo Identifiant du client
+ *      > {String} msg Message envoyé
+ *      > {Date} date Date d'envoie du message
+ *      > {String} color Couleur de la moto du joueur
+ */
+app.io.route('chat', function (req) {
+        console.log('Les bananas');
+    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+        chatData.push(req.data);
+        if(chatData.length>5){
+            chatData.shift();
+        }
+        req.io.broadcast('chat',req.data);
+        req.io.respond({resp:true});
+    }
+});
 
 /**
- *
+ * @route console
+ * @description Route permettant de debugguer depuis un client mobile (en affichant les données sur le server)
+ * @request {Object} data que la client veut afficher
  */
 app.io.route('console', function(req){
     console.log(req.data);
