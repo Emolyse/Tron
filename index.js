@@ -26,7 +26,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:2,max:3,current:0},
+    capacity        : {min:1,max:3,current:0},
     pas             : 3,
     gameSize        : {w:500,l:500},
     pathLength      : 150,
@@ -363,7 +363,7 @@ function stopGame (){
 function getPathLength(path){
     var res = 0;
     for(var i=1;i<path.length;i++){
-        res+= Math.abs(path[i].x-path[i-1])+Math.abs(path[i].y-path[i-1].y);
+        res+= Math.abs(path[i].x-path[i-1].x)+Math.abs(path[i].y-path[i-1].y);
     }
     return res;
 }
@@ -373,13 +373,13 @@ function getPathLength(path){
  * @param dif
  * @return {boolean} true when done
  */
-function adjustPath(dif){
+function adjustPath(path,dif,player){
     var difX = path[1].x-path[0].x;
     var difY = path[1].y-path[0].y;
     var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
     if(newDif>0){//Si le premier segment est trop court on le supprime et on réajuste le segment suivant
         dif = path.shift();
-        return adjustPath(Math.abs(newDif));
+        return adjustPath(path,Math.abs(newDif));
     }
     //On réajuste suivant l'axe x
     if(difX!=0)
@@ -387,6 +387,26 @@ function adjustPath(dif){
     else//ou suivant l'axe y
         path[0].y+=dif*difY/Math.abs(difY);//Si difY<0 (Nord) on multiplie par -1
     return true;
+}
+
+function pathHandler(player){
+    if(player.statut=="playing") {
+        var newPoint = {x: player.position.x, y: player.position.y};
+        if(player.path.length>1){
+            var oldPoint = player.path[player.path.length-2];
+            //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
+            if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
+                oldPoint=player.path.pop();
+            }
+        }
+        player.path.push(newPoint);
+    }
+    //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
+    var dif = getPathLength(player.path)- serverData.pathLength;
+    if( dif>0 && serverData.pathLength>0){
+        return adjustPath(player.path,dif,player);
+    }
+    return false;
 }
 /**
  * @name iteration
@@ -398,7 +418,6 @@ function iteration(callback){
     for(var p in clientData.players){
         //On transforme ce switch en fonction setMove(player,pas)
         var player = clientData.players[p];
-        var pasX = 0, pasY = 0;
         if(player.statut=="playing" || player.statut=="invincible") {
             switch (player.direction) {
                 case "n":
@@ -415,23 +434,7 @@ function iteration(callback){
                     break;
             }
         }
-        if(player.statut=="playing") {
-            var newPoint = {x: player.position.x, y: player.position.y};
-            if(player.path.length>1){
-                var oldPoint = player.path[player.path.length-2];
-                //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
-                if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
-                    oldPoint=player.path.pop();
-                }
-            }
-            player.path.push(newPoint);
-        }
-        //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
-        var dif = getPathLength(player.path)- serverData.pathLength;
-        if( dif>0 && serverData>0){
-            dif = adjustPath(dif);
-        }
-        //
+        trash = pathHandler(player);
     }
     if(callback)
         callback();
@@ -589,32 +592,28 @@ app.io.route('changeDir', function(req){
                 case "n":
                     if (oldDir !== 's' && oldDir !== 'n') {
                         player.position.x += pas;
-                        if (player.statut == "playing")
-                            player.path.push({x: player.position.x, y: player.position.y});
+                        trash = pathHandler(player);
                         player.direction = directionJoueur;
                     }
                     break;
                 case "e":
                     if (oldDir !== 'w' && oldDir !== 'e') {
                         player.position.y += pas;
-                        if (player.statut == "playing")
-                            player.path.push({x: player.position.x, y: player.position.y});
+                        trash = pathHandler(player)
                         player.direction = directionJoueur;
                     }
                     break;
                 case "s":
                     if (oldDir !== 'n' && oldDir !== 's') {
                         player.position.x += pas;
-                        if (player.statut == "playing")
-                            player.path.push({x: player.position.x, y: player.position.y});
+                        trash = pathHandler(player);
                         player.direction = directionJoueur;
                     }
                     break;
                 case "w":
                     if (oldDir !== 'e' && oldDir !== 'w') {
                         player.position.y += pas;
-                        if (player.statut == "playing")
-                            player.path.push({x: player.position.x, y: player.position.y});
+                        trash = pathHandler(player);
                         player.direction = directionJoueur;
                     }
                     break;
@@ -637,7 +636,6 @@ app.listen(3001, function () {
  *      > {String} color Couleur de la moto du joueur
  */
 app.io.route('chat', function (req) {
-        console.log('Les bananas');
     if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
         chatData.push(req.data);
         if(chatData.length>5){
