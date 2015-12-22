@@ -376,22 +376,37 @@ $(document).ready(function() {
      *                  CHAT                *
      ****************************************/
     function getMessageElement(data,perso){
+
         var message = document.createElement("div");
         message.classList.add("message");
-        var pseudo = data.pseudo;
-        if(perso){
-            message.classList.add("perso");
-            pseudo  = "You";
+        if(data == "attente"){
+            var pseudo = "Serveur";
+            var msg = "En attente d'un deuxième joueur";
+            message.innerHTML = '<div class="pseudo" style="color: #03A9F4">'+pseudo+'</div>' +
+            '<div class="message-msg">'+msg+'</div>';
+
+        }else if(data == "ready" && playersData.list.length == 2) {
+            var pseudo = "Serveur";
+            var msg = "La partie peut commencer";
+            message.innerHTML = '<div class="pseudo" style="color: #03A9F4">'+pseudo+'</div>' +
+            '<div class="message-msg">'+msg+'</div>';
+
+        }else{
+            var pseudo = data.pseudo;
+            if(perso){
+                message.classList.add("perso");
+                pseudo  = "You";
+            }
+            message.innerHTML = '<div class="pseudo" style="color: '+data.color+'">'+pseudo+'</div>' +
+            '<div class="date">'+data.date+'</div>' +
+            '<div class="message-msg">'+data.msg+'</div>';
         }
-        message.innerHTML = '<div class="pseudo" style="color: '+data.color+'">'+pseudo+'</div>' +
-            '<div class="message-msg">'+data.msg+'</div>' +
-            '<div class="date">'+data.date+'</div>';
         return message;
     }
 
     function addMessageElt(data,perso){
-        var container = document.querySelector(".msg-container")
-        if(lastDataMsg.pseudo == data.pseudo){
+        var container = document.querySelector(".msg-container");
+        if(lastDataMsg.pseudo == data.pseudo && data != "ready"){
             lastDataMsg.elt.querySelector(".message-msg").innerHTML+='<br>'+data.msg;
             lastDataMsg.elt.querySelector(".date").innerHTML=data.date;
         } else {
