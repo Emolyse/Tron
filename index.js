@@ -538,8 +538,10 @@ app.io.route('ready', function (req) {
                     serverData.capacity.current = serverData.waitingRoom.length;
                     console.log("current après initgame "+ serverData.capacity.current);
                     serverData.waitingRoom.length=0;
+                    app.io.broadcast('chat', 'ready');
                     startGame();
                 } else {
+                    app.io.broadcast('chat', 'attente');
                     if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
                         serverData.waitingRoom.push(req.data.pseudo);
                     }

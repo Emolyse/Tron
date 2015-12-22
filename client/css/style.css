@@ -19,6 +19,9 @@ html, body{
     font-family: 'Roboto', sans-serif;
     overflow: hidden;
 }
+body{
+    background-color: rgba(0, 0, 0, 0.8);
+}
 
 /****************************
  *          LOGIN           *
@@ -33,7 +36,7 @@ html, body{
     height: 100%;
     top: 0;
     left: 0;
-    background-color: rgba(0, 0, 0, 0.8);
+    /*background-color: rgba(0, 0, 0, 0.8);*/
     
 }
 .overlay>.container{
@@ -121,11 +124,22 @@ form#chat > .msg-container {
 form#chat > .msg-container > .message{
     padding: 5px;
     margin: 0 30px 5px 0;
-    background-color: white;
-    box-shadow: 1px 2px 3px darkgrey;
+    /*background-color: white;*/
+    /*box-shadow: 1px 2px 3px darkgrey;*/
+    border-bottom: 1px solid #03A9F4;
     transition: opacity 300ms, transform 300ms;
     -webkit-animation: fadeInLeft 300ms;
     animation: fadeInLeft 300ms;
+    max-width: 155px;
+}
+
+form#chat > .msg-container > .message > .date{
+    font-size: 10px;
+    color: #ffffff;
+}
+
+form#chat > .msg-container > .message > .message-msg{
+    color: #ffffff;
 }
 
 form#chat > .msg-container > .message.perso{
@@ -155,13 +169,21 @@ form#chat > .input-container {
     flex-flow: row nowrap;
     justify-content: space-between;
     height:50px;
+    margin-bottom: 13px;
+    width: 177px;
 }
 
-form#chat > .input-container > .input-msg{
-    height: 100%;
+form#chat > .input-container > #input-msg{
+    border: 1px solid #03A9F4;
+    background-color: transparent;
+    color: #ffffff;
+    padding: 4px;
+    width: 147px;
 }
-form#chat > .input-container > .submit-msg{
-    height: 100%;
+form#chat > .input-container > #submit-msg{
+    background-color: #03A9F4;
+    border: none;
+    color: #ffffff;
 }
 
 /****************************
@@ -169,12 +191,13 @@ form#chat > .input-container > .submit-msg{
  ***************************/
 #tronCanvas{
     position: absolute;
-    background: #353e46;
+    background: #1C1D1E;
 }
 
 #plateau{
     position: relative;
     margin: 10px auto;
+    border: 2px solid #03A9F4;
 }
 
 /****************************
