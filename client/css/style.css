@@ -133,6 +133,17 @@ form#chat > .msg-container > .message{
     max-width: 155px;
 }
 
+form#chat > .msg-container > .msg-server{
+    margin: 5px 0;
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+    width:155px;
+    color:#03A9F4;
+    -webkit-animation: fadeInTop 300ms;
+    animation: fadeInTop 300ms;
+}
+
 form#chat > .msg-container > .message > .date{
     font-size: 10px;
     color: #ffffff;
@@ -140,6 +151,7 @@ form#chat > .msg-container > .message > .date{
 
 form#chat > .msg-container > .message > .message-msg{
     color: #ffffff;
+    overflow-wrap: break-word;
 }
 
 form#chat > .msg-container > .message.perso{
@@ -161,6 +173,14 @@ form#chat > .msg-container > .message.perso{
 }
 @keyframes fadeInBot {
     0%{ opacity:0; transform: translateY(50px); }
+    100%{ opacity:1; transform: translateY(0); }
+}
+@-webkit-keyframes fadeInTop {
+    0%{ opacity:0; -webkit-transform: translateY(-50px); }
+    100%{ opacity:1; -webkit-transform: translateY(0); }
+}
+@keyframes fadeInTop {
+    0%{ opacity:0; transform: translateY(-50px); }
     100%{ opacity:1; transform: translateY(0); }
 }
 
@@ -198,6 +218,44 @@ form#chat > .input-container > #submit-msg{
     position: relative;
     margin: 10px auto;
     border: 2px solid #03A9F4;
+}
+
+#plateau > div.moto{
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#plateau > div.moto > img{
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    position: absolute;
+}
+
+.invincible > img {
+    /*position: absolute;*/
+    /*left: 0;*/
+    /*top: 0;*/
+    /*height: 100%;*/
+    /*width: 100%;*/
+    /*background: -webkit-linear-gradient(white, rgba(255,255,255,0));*/
+    /*background: linear-gradient(white, rgba(255,255,255,0));*/
+
+    -webkit-animation:clignote 300ms infinite;
+    animation:clignote 800ms infinite;
+}
+
+@-webkit-keyframes clignote {
+    0%{ opacity: 1; -webkit-transform: scale(1); }
+    50%{ opacity: 1; -webkit-transform: scale(1.25); }
+    100%{ opacity: 1; -webkit-transform: scale(1); }
+}
+@-webkit-keyframes clignote {
+    0%{ opacity: 1; transform: scale(1); }
+    50%{ opacity: 0.6; transform: scale(1.25); }
+    100%{ opacity: 1; transform: scale(1); }
 }
 
 /****************************

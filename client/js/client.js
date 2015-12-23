@@ -108,8 +108,9 @@ $(document).ready(function() {
         });
         //On écoute si une moto est de nouveau disponible
         io.on("motoAvailable", function (data) {
+            console.log("MotoAvailable");
             //Si un autre joueur a sélectionné une moto on la supprime de la liste
-            $("#motoSelector").innerHTML+="<img src=" + motoPath + motos[data].file +
+            document.querySelector('#motoSelector').innerHTML+="<img src=" + motoPath + motos[data].file +
             " id='loginMoto"+data + "'" +
             " data-moto-id=" + data +
             " onclick=motoSelector(this)" + ">";
@@ -163,7 +164,8 @@ $(document).ready(function() {
             if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
 
             } else {
-                io.removeListener('motoUnvailable');
+                io.removeListener('motoUnavailable');
+                io.removeListener('motoAvailable');
                 //On fait disparaitre l'overlay
                 var $overlay = $("div.overlay");
                 if ($overlay.is(":visible")) {
@@ -199,34 +201,50 @@ $(document).ready(function() {
         canvas.height = canvasSize;
         $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
-        io.on("initialisation",function (data) { // Une partie commence
-            initedMoto = initMotos(deNormalize(data));
-            if(initedMoto){
-                drawPlayers(deNormalize(data));
-            }
-        });
 
-        io.on("iteration",function(data){
-            if(initedMoto) {
-                drawPlayers(deNormalize(data));
-            }
-            else{
-                initMotos(deNormalize(data));
-            }
+        $( window ).resize(resizeHaandler);
+
+        //Quand on initialise la partie on charge l'ensemble des évenements qui peuvent survenir pendant la partie
+        io.on("initialisation",function (data) { // Une partie commence
+            //On charge l'ensemble des motos
+            console.log("initialisation");
+            regenerateMotos(deNormalizeAll(data), function () {
+                drawPlayers(deNormalizeAll(data), function () {
+                    //A chaque itération on met à jour le plateau
+                    io.on("iteration",function(data){
+                        drawPlayers(deNormalizeAll(data));
+                    });
+                });
+                //Si un joueur arrive dans la partie on ajoute sa moto
+                io.on("newPlayer", function (player) {
+                    console.log("newplayer",player);
+                    player = deNormalizePlayer(player);
+                    addMoto(player);
+                });
+
+                //Si un joueur quitte la partie on supprime sa moto
+                io.on("removePlayer", function (player) {
+                    removeMoto(player);
+                });
+                //Lorsque la partie commence en charge le controle utilisateur
+                io.on('start', function(){
+                    console.log("start");
+                    window.addEventListener('deviceorientation', orientationHandler,true);
+                    initVirtualControl();
+                    document.addEventListener('keydown', controlKeyHandler);
+                    //On supprime tous les listeners liés à la partie lorsqu'elle se termine
+                    io.on("end", function () {
+                        io.removeListener("iteration");
+                        io.removeListener("newPlayer");
+                        io.removeListener("removePlayer");
+                        window.removeEventListener('deviceorientation',orientationHandler);
+                        window.removeEventListener('keydown',controlKeyHandler);
+                        $(".fleches").remove();
+                    });
+                });
+            });
         });
         io.emit("ready",joueur);
-
-        io.on("newPlace", function(data){
-            if(data.players[joueur.pseudo].statut=='waiting'){
-                io.emit("ready",joueur);
-            }
-        });
-
-        io.on('start', function(){
-            window.addEventListener('deviceorientation', orientationHandler,true);
-            initVirtualControl();
-            document.addEventListener('keydown', controlKeyHandler);
-        });
 
     }
 
@@ -250,7 +268,6 @@ $(document).ready(function() {
         var data = {pseudo: joueur.pseudo, direction: direction};
         io.emit('changeDir', data);
     }
-
     function controlKeyHandler(evt){
         if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
             var key = evt.which;
@@ -263,7 +280,6 @@ $(document).ready(function() {
             io.emit('changeDir', data);
         }
     }
-
     function initVirtualControl(){
         //Sur les mobiles on ajoute des touches tactiles virtuelles
         if( navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
@@ -293,60 +309,73 @@ $(document).ready(function() {
             });
         }
     }
+
     ////////////    INGAME   /////////////////
 
-    /** Récupération des infos d'un joueur **/
-    io.on('changeDir', function (data) {
-        console.log('data : ' + data);
-    });
 
-    /*Adapter les données à notre écran*/
-    function deNormalize(data){
-        var playersData = jQuery.extend(true, {}, data);
-        $.each(playersData.players, function(i) {
-            playersData.players[i].position.x *= canvasSize;
-            playersData.players[i].position.y *= canvasSize;
-            playersData.players[i].motoSize.l *= canvasSize;
-            playersData.players[i].motoSize.w *= canvasSize;
-            $.each(playersData.players[i].path, function(j){
-                playersData.players[i].path[j].x *= canvasSize;
-                playersData.players[i].path[j].y *= canvasSize;
-            });
-        });
-        return playersData;
-    }
 
     /****************************************
      *       DESSINS DES TRACES ET MOTOS    *
      ****************************************/
     /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
-    function drawPlayers(data){
+    function drawPlayers(data,callback){
         ctx.clearRect(0,0,canvasSize,canvasSize);
         var players = data.players;
         $.each(players, function(i) {
+            //On trace les chemins de tous les joueurs en jeu ou morts
             if (players[i].statut != "waiting") {
-                var color = motos[players[i].moto].color;
                 ctx.beginPath();
-                if (players[i].path.length > 0) {
-                    ctx.moveTo(players[i].path[0].x, players[i].path[0].y);
-                    var path = players[i].path;
-                    $.each(path, function (j) {
-                        ctx.lineTo(path[j].x, path[j].y);
-                    });
+                if (players[i].path.length > 1) {
                     ctx.strokeStyle = motos[players[i].moto].color;
                     if (players[i].statut == "dead") {
                         ctx.strokeStyle = "#aaa";
                     }
+                    var path = players[i].path;
+                    ctx.moveTo(path[0].x, path[0].y);
+                    $.each(path, function (j) {
+                        ctx.lineTo(path[j].x, path[j].y);
+                    });
                     ctx.lineWidth = 1;
                     ctx.stroke();
                 }
-                drawMoto(players[i].position.x, players[i].position.y, players[i].moto, players[i].direction);
+                var currentMoto = document.querySelector("#moto"+players[i].moto);
+                //Si la moto existe et n'est pas en cours de disparition on met à jour son affichage
+                if($(currentMoto).length && !$(currentMoto).hasClass("dead")) {
+                    drawMoto(players[i].position.x, players[i].position.y, currentMoto, players[i].direction, function () {
+                        //On gère la disparition d'une moto lorsque le joueur est mort
+                        if(players[i].statut == "dead"){
+                            console.log("Dead "+players[i].moto);
+                            $(currentMoto).addClass("dead");
+                            $(currentMoto).fadeOut(400,function () {
+                                $(currentMoto).remove();
+                            });
+                        }
+                    });
+                    //On gère l'animation d'une moto invincible
+                    if($(currentMoto).hasClass("invincible") && players[i].statut != "invincible"){
+                        $(currentMoto).removeClass("invincible");
+                    }
+                    if(!$(currentMoto).hasClass("invincible") && players[i].statut == "invincible"){
+                        $(currentMoto).addClass("invincible");
+                    }
+                }
             }
         });
+        if(callback)
+            callback();
+        return true;
     }
-    /* Permet d'ajouter l'image de la moto*/
-    function drawMoto(x, y, moto, direction){
-        var currentmoto = $('#moto'+moto);
+
+    /**
+     * @name drawMoto
+     * @description on met à jour l'orientation et la position de la moto
+     * @param x nouvelle position horizontale de la moto
+     * @param y nouvelle position verticale de la moto
+     * @param currentmoto élément js de la moto
+     * @param direction de la moto
+     * @param callback
+     */
+    function drawMoto(x, y, currentmoto, direction,callback){
         var degres = 0;
         switch(direction) {
             case "w":
@@ -364,13 +393,118 @@ $(document).ready(function() {
             //default: degres = 0;
         }
         var transX = x;
-        var transY = y - currentmoto[0].height/2;
-
-        currentmoto[0].style.transformOrigin="0% 50%";
-        currentmoto[0].style.transform="translate("+transX+"px,"+transY+"px)";
-        currentmoto[0].style.transform += "rotate("+degres+"deg)";
+        var transY = y - currentmoto.clientHeight/2;
+        currentmoto.style.webkitTransformOrigin="0% 50%";
+        currentmoto.style.transformOrigin="0% 50%";
+        currentmoto.style.webkitTransform ="translate("+transX+"px,"+transY+"px) rotate("+degres+"deg)";
+        currentmoto.style.transform ="translate("+transX+"px,"+transY+"px) rotate("+degres+"deg)";
+        if(callback){
+            callback();
+        }
     }
 
+    /****************************************
+     *       FONCTIONS UTILES               *
+     ****************************************/
+
+    /*Redimentionne le canvas quand la taille de la fenêtre change*/
+    function resizeHaandler() {
+        canvasSize = Math.min(innerHeight, innerWidth);
+        if(canvasSize==innerHeight){
+            canvasSize-=marginCanvas*2;
+        }
+        var plateau = document.getElementById("plateau");
+        plateau.style.height = canvasSize+"px";
+        plateau.style.width = canvasSize+"px";
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+    }
+
+    function deNormalizePlayer(p){
+        var player = jQuery.extend(true, {}, p);
+        player.position.x *= canvasSize;
+        player.position.y *= canvasSize;
+        player.motoSize.l *= canvasSize;
+        player.motoSize.w *= canvasSize;
+        $.each(player.path, function(j){
+            player.path[j].x *= canvasSize;
+            player.path[j].y *= canvasSize;
+        });
+        return player;
+    }
+    /**
+     * @name deNormalizeAll
+     * @description Convertit les coordonnées du jeu de données normalisé en position adaptées à l'écran
+     * @param data jeu de données normalisé
+     * @return {Object} jeu de données dénormalisé
+     */
+    function deNormalizeAll(data){
+        var playersData = jQuery.extend(true, {}, data);
+        $.each(playersData.players, function(i) {
+            playersData.players[i] = deNormalizePlayer(playersData.players[i])
+        });
+        return playersData;
+    }
+
+    /**
+     * @name removeMoto
+     * @description supprime l'élément moto d'un joueur
+     * @param player
+     */
+    function removeMoto(player){
+        $("#moto"+player.moto).remove();
+    }
+
+    /**
+     * @name addMoto
+     * @description crée l'élément moto d'un joueur et l'ajoute au plateau
+     * @param player
+     * @returns {boolean}
+     */
+    function addMoto(player){
+        console.log("Add moto",player);
+        var moto = player.moto;
+        var motoElt = document.createElement("div");
+        motoElt.style.width = player.motoSize.l + "px";
+        motoElt.style.height = player.motoSize.w + "px";
+        motoElt.className += "moto";
+        motoElt.title = "moto" + moto;
+        motoElt.id = "moto" + moto;
+        var img = document.createElement("img");
+        img.src = motoPath + motos[moto].file;
+        motoElt.appendChild(img);
+        document.getElementById("plateau").appendChild(motoElt);
+        return true;
+    }
+
+    /**
+     * @name regenerateMoto
+     * @description supprime et réinsère tous les éléments moto des joueurs en jeu
+     * @param playersData
+     * @param callback
+     * @returns {boolean}
+     */
+    function regenerateMotos(playersData, callback){
+        $(".moto").remove();
+        $.each(playersData.players, function(i) {
+            var player = playersData.players[i];
+            if(player.statut == "playing" || player.statut=="invincible") {
+                trash = addMoto(player);
+            }
+        });
+        if(callback)
+            callback();
+        return true;
+    }
+
+    /****************************************
+     *                 SCORE                *
+     ****************************************/
+    function loadScore(){
+        var score = document.createElement("section");
+        score.id = "score";
+
+    }
 
     /****************************************
      *                  CHAT                *
@@ -378,35 +512,26 @@ $(document).ready(function() {
     function getMessageElement(data,perso){
 
         var message = document.createElement("div");
-        message.classList.add("message");
-        if(data == "attente"){
-            var pseudo = "Serveur";
-            var msg = "En attente d'un deuxième joueur";
-            message.innerHTML = '<div class="pseudo" style="color: #03A9F4">'+pseudo+'</div>' +
-            '<div class="message-msg">'+msg+'</div>';
-
-        }else if(data == "ready" && playersData.list.length == 2) {
-            var pseudo = "Serveur";
-            var msg = "La partie peut commencer";
-            message.innerHTML = '<div class="pseudo" style="color: #03A9F4">'+pseudo+'</div>' +
-            '<div class="message-msg">'+msg+'</div>';
-
+        if(data.pseudo == "server"){
+            message.classList.add("msg-server");
+            message.innerHTML = data.msg;
         }else{
             var pseudo = data.pseudo;
+            message.classList.add("message");
             if(perso){
                 message.classList.add("perso");
                 pseudo  = "You";
             }
             message.innerHTML = '<div class="pseudo" style="color: '+data.color+'">'+pseudo+'</div>' +
-            '<div class="date">'+data.date+'</div>' +
-            '<div class="message-msg">'+data.msg+'</div>';
+                '<div class="date">'+data.date+'</div>' +
+                '<div class="message-msg">'+data.msg+'</div>';
         }
         return message;
     }
 
     function addMessageElt(data,perso){
         var container = document.querySelector(".msg-container");
-        if(lastDataMsg.pseudo == data.pseudo && data != "ready"){
+        if(lastDataMsg.pseudo == data.pseudo && data.pseudo != "server"){
             lastDataMsg.elt.querySelector(".message-msg").innerHTML+='<br>'+data.msg;
             lastDataMsg.elt.querySelector(".date").innerHTML=data.date;
         } else {
@@ -425,10 +550,10 @@ $(document).ready(function() {
         var chat = document.createElement("form");
         chat.id = "chat";
         chat.innerHTML = '<section class="msg-container"></section>' +
-                            '<section class="input-container">' +
-                            '<input type="text" id="input-msg">' +
-                            '<input type="submit" id="submit-msg" value=">">' +
-                            '</section>';
+            '<section class="input-container">' +
+            '<input type="text" id="input-msg">' +
+            '<input type="submit" id="submit-msg" value=">">' +
+            '</section>';
         document.querySelector("main").appendChild(chat);
         chat.addEventListener('submit',function (e) {
             e.preventDefault();
@@ -451,67 +576,29 @@ $(document).ready(function() {
         });
     }
 
-    /****************************************
-     *       FONCTIONS UTILES               *
-     ****************************************/
-
-    /*Redimentionne le canvas quand la taille de la fenêtre change*/
-    $( window ).resize(function() {
-        canvasSize = Math.min(innerHeight, innerWidth);
-        if(canvasSize==innerHeight){
-            canvasSize-=marginCanvas*2;
-        }
-        var plateau = document.getElementById("plateau");
-        plateau.style.height = canvasSize+"px";
-        plateau.style.width = canvasSize+"px";
-        canvas.width = canvasSize;
-        canvas.height = canvasSize;
-    });
-
-    /* Permet de charger toutes les motos en cours de jeu */
-    function initMotos(playersData){
-        $(".moto").remove();
-        $.each(playersData.players, function(i) {
-            if(playersData.players[i].statut != "waiting") {
-                var moto = playersData.players[i].moto;
-                var img = document.createElement("img");
-                img.src = motoPath + motos[moto].file;
-                img.style.position = "absolute";
-                img.style.width = playersData.players[i].motoSize.l + "px";
-                img.style.height = playersData.players[i].motoSize.w + "px";
-                img.style.top = 0;
-                img.style.left = 0;
-                img.className += "moto";
-                img.title = "moto" + moto;
-                img.id = "moto" + moto;
-                document.getElementById("plateau").appendChild(img);
-            }
-        });
-        return true;
-    }
-
-    io.on("drawGrid", function (data) {
-        var canGrid = document.createElement("canvas");
-        canGrid.id = "truc";
-        canGrid.width = 500;
-        canGrid.height = 500;
-        canGrid.style.position = "fixed";
-        canGrid.style.top = 0;
-        canGrid.style.left = 0;
-        canGrid.style.backgroundColor= "#fff";
-        document.body.appendChild(canGrid);
-        var ctxGrid = canGrid.getContext('2d');
-        console.log(data);
-        for (var i = 0; i < 500; i++) {
-            for (var j = 0; j < 500; j++) {
-                if(data[i][j]==undefined)
-                    ctxGrid.fillStyle = "black";
-                else if(data[i][j]=="t") ctxGrid.fillStyle = "red";
-                else ctxGrid.fillStyle = "blue";
-                ctxGrid.fillRect(i,j,1,1);
-            }
-        }
-    });
+    //Fonction de debug qui affiche la grille de collision envoyée par le serveur
+    //io.on("drawGrid", function (data) {
+    //    var canGrid = document.createElement("canvas");
+    //    canGrid.id = "truc";
+    //    canGrid.width = 500;
+    //    canGrid.height = 500;
+    //    canGrid.style.position = "fixed";
+    //    canGrid.style.top = 0;
+    //    canGrid.style.left = 0;
+    //    canGrid.style.backgroundColor= "#fff";
+    //    document.body.appendChild(canGrid);
+    //    var ctxGrid = canGrid.getContext('2d');
+    //    console.log(data);
+    //    for (var i = 0; i < 500; i++) {
+    //        for (var j = 0; j < 500; j++) {
+    //            if(data[i][j]==undefined)
+    //                ctxGrid.fillStyle = "black";
+    //            else if(data[i][j]=="t") ctxGrid.fillStyle = "red";
+    //            else ctxGrid.fillStyle = "blue";
+    //            ctxGrid.fillRect(i,j,1,1);
+    //        }
+    //    }
+    //});
 
     // Tableau de position des motos sur le client ET sur le serveur
     // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les
@@ -519,6 +606,7 @@ $(document).ready(function() {
 });
 })(jQuery);
 
+//Fonctions de debug permettant d'afficher en temps réelle la position de l'accéléromètre à l'écran
 //function initTrace(){
 //    var ctx = document.querySelector("#canvasPoints").getContext('2d');
 //    ctx.strokeStyle = "rgba(0, 0, 0, 1)";

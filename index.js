@@ -26,7 +26,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:2,max:3,current:0},
+    capacity        : {min:1,max:3,current:0},
     pas             : 3,
     gameSize        : {w:500,l:500},
     pathLength      : 150,
@@ -40,7 +40,8 @@ var serverData = {
                       {x:0,y:0,direction:'e'},{x:0,y:0,direction:'e'},],//tableau de position x/y pour chaque couleur
                                                                         // de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
-    pseudoMap       : {},//On associe chaque pseudo à son sessionid
+    connections     : {},//On associe chaque pseudo à son sessionid
+    startTime       : 0,//Durée d'attente avant le lancement de la partie
     invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 };
 
@@ -89,11 +90,11 @@ function isAvailablePseudo (pseudo) {
  * @param player L'objet contenant pseudo et moto
  * @param socketId The id of the player'socket
  */
-function createPlayer(player,socketId){
-    serverData.pseudoMap[socketId]=player.pseudo;
+function createPlayer(player,sId){
+    serverData.connections[sId]=player.pseudo;
     clientData.list.push(player.pseudo);
     clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting"};
-    console.log("Create",player.pseudo,socketId,clientData.list);
+    console.log("Create",player.pseudo,sId,clientData.list);
 }
 
 /**
@@ -109,13 +110,6 @@ function initPlayer(player){
             clientData.players[player.pseudo].moto = player.moto;
             clientData.players[player.pseudo].motoSize.l = serverData.motoSize.l;
             clientData.players[player.pseudo].motoSize.w = serverData.motoSize.w;
-            if(serverData.playing){
-                var pos = serverData.initial_position[serverData.capacity.current];
-                clientData.players[player.pseudo].position.x = pos.x;
-                clientData.players[player.pseudo].position.y = pos.y;
-                clientData.players[player.pseudo].direction = pos.direction;
-                clientData.players[player.pseudo].path.push({x:pos.x,y:pos.y});
-            }
             return true;
         }
     }
@@ -127,69 +121,286 @@ function initPlayer(player){
  * @description Supprime le joueur de la clientData.list, de clientData.players et de la waiting room
  * @param pseudo Identifiant du joueur
  */
-function removePlayer(pseudo){
-    //On empeche un client malhonnete de
-    if(pseudo){
-        var moto;
-        for(var p in clientData.list){
-            if(clientData.list[p]==pseudo){
-                clientData.list.splice(p,1);
-                moto = clientData.players[pseudo].moto;
-                if(clientData.players[pseudo].statut=="invincible" || clientData.players[pseudo].statut=="playing" || clientData.players[pseudo].statut=="dead") {
-                    console.log("suppression d'un joueur de current");
-                    serverData.capacity.current--;
-                    console.log("CURRENT "+ serverData.capacity.current);
-                }
-                delete clientData.players[pseudo];
-                if(moto){
-                    var rmMoto = true;
-                    for(var i=0;i<serverData.motos_available;i++){
-                        if(serverData.motos_available[i]===moto) {
-                            rmMoto = false;break;
-                        }
-                    }
-                    if(rmMoto) {
-                        serverData.motos_available.push(moto);
-                        app.io.broadcast("motoAvailable",moto);
-                    }
-                }
-                console.log("Remove",pseudo,clientData.list);
+function removePlayer(pseudo,callback){
+    if(pseudo) {
+        var pos = clientData.list.indexOf(pseudo);
+        if (pos > -1) {
+            //Le client était dans clientData
+            clientData.list.splice(pos, 1);
+            var player = clientData.players[pseudo];
+            if (player.statut != "waiting") {//Le client était en jeu
+                app.io.broadcast('removePlayer', player);
+                serverData.capacity.current--;
+                app.io.broadcast("chat",{pseudo:"server",msg:pseudo+" leave the game."});
             }
-        }
-        for(var p in serverData.waitingRoom){
-            if(serverData.waitingRoom[p]==pseudo){
-                serverData.waitingRoom.splice(p,1);
+            if (player.moto !== '') {//Le client avait une moto
+                if (serverData.motos_available.indexOf(player.moto) == -1) {
+                    serverData.motos_available.push(player.moto);
+                    app.io.broadcast('motoAvailable', player.moto);
+                }
+            }
+            delete clientData.players[pseudo];
+            pos = serverData.waitingRoom.indexOf(pseudo);
+            if(pos >-1 ){//Le client était dans la waitingRoom
+                serverData.waitingRoom.splice(pos,1);
+                app.io.broadcast("chat",{pseudo:"server",msg:pseudo+" leave the waiting room."});
             }
         }
     }
+    if(callback)
+        callback();
+}
+
+/**
+ * @name initPlayerInGame
+ * @description Initialise et ajoute un joueur à une partie en cours ou sur le point de commencer
+ * @param player
+ * @param callback
+ * @returns {boolean} true si le joueur est ajouté, false s'il n'y a plus de place
+ */
+function initPlayerInGame(player, callback){
+    if(serverData.capacity.current>=serverData.capacity.max){
+        console.log("Il n'y plus de position initiale disponible");
+        return false;
+    }
+    var pos = serverData.initial_position[serverData.capacity.current];
+    player.position.x = pos.x;
+    player.position.y = pos.y;
+    player.direction = pos.direction;
+    player.motoSize.l = serverData.motoSize.l;
+    player.motoSize.w = serverData.motoSize.w;
+    if(serverData.playing) {
+        player.statut = "invincible";
+    } else {
+        player.statut = "playing";
+        player.path.push({x:pos.x,y:pos.y});
+    }
+    player.score = 0;
+    serverData.capacity.current++;
+    if(callback){
+        callback();
+    }
+    return true;
+}
+/**
+ * @name insertPlayerInGame
+ * @description Lorsqu'une partie est en cours on utilise cette fonction pour ajouter un nouveau joueur  à la partie
+ * @param player
+ * @param callback
+ */
+function insertPlayerInGame(player,sId,callback){
+    initPlayerInGame(player, function () {
+        //On signale le nouveau joueur
+        app.io.sockets.sockets[sId].broadcast.emit('newPlayer', normalizePlayer(player));
+        //On initialise son plateau
+
+        app.io.sockets.sockets[sId].emit('initialisation', normalize()).emit('start');
+        //Il est invincible pendant serverData.invincibleTime
+        setTimeout(function () {
+            player.path.push({x: player.position.x, y: player.position.y});
+            player.statut = "playing";
+            if(callback)
+                callback();
+        }, serverData.invincibleTime);
+    });
+}
+ /**
+ * @name initGame
+ * @description On prend les capacité max premier joueur de la file d'attente et on les insère dans la partie
+ *              Lorqu'il n'y a plus de place dans la partie l'initialisation s'arrete
+ * @returns {boolean} Quand l'initialisation est terminée.
+ */
+function initGame (callback) {
+    for(var i=0;i<serverData.waitingRoom.length;i++){
+        if(initPlayerInGame(clientData.players[serverData.waitingRoom[i]])){
+            serverData.waitingRoom.splice(i,1);
+            i--;
+        } else {
+            //On est arrivé à la capacité max
+            break;
+        }
+    }
+    app.io.broadcast('initialisation', normalize());
+     if(callback)
+        callback();
+    return true;
+}
+
+/**
+ * @name startGame
+ * @description Après que la partie ait été initialisée on lance les itérations de jeu
+ */
+function startGame () {
+    serverData.playing=true;
+    serverData.date = new Date();
+    clearInterval(refreshIntervalId);
+    setTimeout(function(){
+        app.io.broadcast('start');
+        refreshIntervalId = setInterval(function(){
+            iteration(function () {
+                var normalizeData = normalize();
+                app.io.broadcast('iteration', normalizeData);
+                collision();
+            });
+        },25);
+    },serverData.startTime);
+}
+
+/**
+ * @name stopGame
+ * @description Arrete la partie, le signale à tout le monde et replace les joueurs au début de la file d'attente
+ * @param callback
+ */
+function stopGame (callback){
+    console.log("Partie intérompue");
+    clearInterval(refreshIntervalId);
+    //On signale à tout le monde l'intérruption de la partie
+    app.io.broadcast("end");
+    //Ici on rajoute les joueur != waiting à la waitingroom afin qu'ils soient les premiers ajouté à la création de
+    // partie
+    for(var p in clientData.players){
+        var player = clientData.players[p];
+        if(player.statut != "waiting"){
+            serverData.waitingRoom.unshift(p);
+            player.statut = "waiting";
+        }
+    }
+    serverData.playing = false;
+    if(callback)
+        callback();
+}
+
+/**
+ * @name getPathLength
+ * @description Renvoie la longeur du chemin en entrée selon l'echelle de la grille de jeu
+ * @param path
+ * @returns {number} longueur du chemin
+ */
+function getPathLength(path){
+    var res = 0;
+    for(var i=1;i<path.length;i++){
+        res+= Math.abs(path[i].x-path[i-1].x)+Math.abs(path[i].y-path[i-1].y);
+    }
+    return res;
+}
+/**
+ * @name adjustPath
+ * @description Réajuste un chemin pour que sa taille corresponde à la limite
+ * @param dif
+ * @return {boolean} true when done
+ */
+function adjustPath(path,dif){
+    var difX = path[1].x-path[0].x;
+    var difY = path[1].y-path[0].y;
+    var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
+    if(newDif>0){//Si le premier segment est trop court on le supprime et on réajuste le segment suivant
+        dif = path.shift();
+        return adjustPath(path,Math.abs(newDif));
+    }
+    //On réajuste suivant l'axe x
+    if(difX!=0)
+        path[0].x+=dif*difX/Math.abs(difX);//Si difX<0 (West) on multiplie par -1
+    else//ou suivant l'axe y
+        path[0].y+=dif*difY/Math.abs(difY);//Si difY<0 (Nord) on multiplie par -1
+    return true;
+}
+/**
+ * @name pathHandler
+ * @description Met à jour la trace d'un joueur, si elle est trop longue il la réduit
+ * @param player
+ * @returns {boolean}
+ */
+function pathHandler(player){
+    if(player.statut=="playing") {
+        var newPoint = {x: player.position.x, y: player.position.y};
+        if(player.path.length>1){
+            var oldPoint = player.path[player.path.length-2];
+            //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
+            if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
+                oldPoint=player.path.pop();
+            }
+        }
+        player.path.push(newPoint);
+    }
+    //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
+    var dif = getPathLength(player.path)- serverData.pathLength;
+    if( dif>0 && serverData.pathLength>0){
+        return adjustPath(player.path,dif);
+    }
+    return false;
+}
+/**
+ * @name iteration
+ * @description La fonction itération incrémente toutes les clientData.players[player].position déplaçant ainsi chaque
+ * moto. Elle ajoute aussi le premier point de à chaque trace clientData.players[player].path
+ * @param callback
+ */
+function iteration(callback){
+    var newDate = new Date();
+    var time = newDate-serverData.date;
+    serverData.date = newDate;
+    for(var p in clientData.players){
+        //On transforme ce switch en fonction setMove(player,pas)
+        var player = clientData.players[p];
+        if(player.statut=="playing" || player.statut=="invincible") {
+            player.score+= time;
+            switch (player.direction) {
+                case "n":
+                    player.position.y += -serverData.pas;
+                    break;
+                case "e":
+                    player.position.x += serverData.pas;
+                    break;
+                case "s":
+                    player.position.y += serverData.pas;
+                    break;
+                case "w":
+                    player.position.x += -serverData.pas;
+                    break;
+            }
+        }
+        trash = pathHandler(player);
+    }
+    if(callback)
+        callback();
+    return true;
+}
+
+/**
+ * @name normalizePlayer
+ * @description On normalize les données d'un client
+ * @return client normalisé
+ */
+function normalizePlayer(p){
+    var player = JSON.parse(JSON.stringify(p));
+    player.position.x/=serverData.gameSize.w;
+    player.position.y/=serverData.gameSize.l;
+    player.motoSize.l/=serverData.gameSize.l;
+    player.motoSize.w/=serverData.gameSize.w;
+    for(var path in player.path){
+        player.path[path].x/=serverData.gameSize.w;
+        player.path[path].y/=serverData.gameSize.l;
+    }
+    return player;
 }
 /**
  * @name normalize
  * @description On normalize les données clientData avant de les envoyer au client
+ * @return A jeu de données normalisé construit à partir de clientData
  */
- function normalize () {
+function normalize () {
     var normalizeData = JSON.parse(JSON.stringify(clientData));
     for(var p in normalizeData.players){
-        normalizeData.players[p].position.x/=serverData.gameSize.w;
-        normalizeData.players[p].position.y/=serverData.gameSize.l;
-        normalizeData.players[p].motoSize.l/=serverData.gameSize.l;
-        normalizeData.players[p].motoSize.w/=serverData.gameSize.w;
-        for(var path in normalizeData.players[p].path){
-            normalizeData.players[p].path[path].x/=serverData.gameSize.w;
-            normalizeData.players[p].path[path].y/=serverData.gameSize.l;
-        }
+        normalizeData.players[p] = normalizePlayer(normalizeData.players[p]);
     }
     return normalizeData;
- }
-
+}
 /**
  * @name collision
  * @description On détecte toutes les collisions possible si le joueur est en jeu 'il est invincible il boucle sur
  *     plateau lorsqu'il touche une bordure
  */
-var iter = 0;
 function collision () {
-    iter++;
     var grid = [];
     for (var i = 0; i < serverData.gameSize.w; i++) {
         grid[i]=[];
@@ -211,6 +422,7 @@ function collision () {
         if(player.statut=="playing" || player.statut=="dead"){
             if(player.path.length > 0) {
                 var point = player.path[0];
+                if(point.x<0 || point.y<0) break;
                 var oldPoint, xmax,ymax;
                 var x,y;
                 var gridVal = grid[point.x][point.y];
@@ -274,10 +486,6 @@ function collision () {
             }
         }
 
-        //if(iter==100) {
-        //    app.io.broadcast("drawGrid", grid);
-        //    stopGame();
-        //}
         //On gère qu'un statut invincible boucle sur les bordures
         if (player.statut=="invincible"){
             switch (player.direction) {
@@ -298,147 +506,8 @@ function collision () {
                         player.position.x=serverData.gameSize.w+serverData.motoSize.l;
                     } break;
             }
-            if(player.path.length>serverData.pathLength){
-                player.path.shift();
-            }
         }
     }
-    //console.log(clientData.players);
-}
-
- /**
- * @name initGame
- * @description On initialise les positions et directions de chaque joueur
- */
-function initGame () {
-    var keys = Object.keys(clientData.players);
-    for(var i=0;i<keys.length;i++){
-        var pos = serverData.initial_position[i];
-        var player = clientData.players[keys[i]];
-        player.position.x = pos.x;
-        player.position.y = pos.y;
-        player.direction = pos.direction;
-        player.motoSize.l = serverData.motoSize.l;
-        player.motoSize.w = serverData.motoSize.w;
-        clientData.players[keys[i]].path.length = 0;
-        player.path.push({x:pos.x,y:pos.y});
-        player.statut = "playing";
-    }
-    app.io.broadcast('initialisation', normalize());
-    return true;
-}
-
-/**
- * @name startGame
- * @description Après que la partie ait été initialisée on lance les itérations de jeu
- */
-
-function startGame () {
-    serverData.playing=true;
-    clearInterval(refreshIntervalId);
-    setTimeout(function(){
-        app.io.broadcast('start');
-        refreshIntervalId = setInterval(function(){
-            iteration(function () {
-                var normalizeData = normalize();
-                app.io.broadcast('iteration', normalizeData);
-                collision();
-            });
-        },25);
-    },0);//#DEBUG
-}
-
-function stopGame (){
-    console.log("stoooop");
-    serverData.playing = false;
-    clearInterval(refreshIntervalId);
-}
-
-/**
- * @name getPathLength
- * @description Renvoie la longeur du chemin en entrée selon l'echelle de la grille de jeu
- * @param path
- * @returns {number} longueur du chemin
- */
-function getPathLength(path){
-    var res = 0;
-    for(var i=1;i<path.length;i++){
-        res+= Math.abs(path[i].x-path[i-1].x)+Math.abs(path[i].y-path[i-1].y);
-    }
-    return res;
-}
-/**
- * @name adjustPath
- * @description Réajuste un chemin pour que sa taille corresponde à la limite
- * @param dif
- * @return {boolean} true when done
- */
-function adjustPath(path,dif){
-    var difX = path[1].x-path[0].x;
-    var difY = path[1].y-path[0].y;
-    var newDif = dif - Math.max(Math.abs(difX),Math.abs(difY));
-    if(newDif>0){//Si le premier segment est trop court on le supprime et on réajuste le segment suivant
-        dif = path.shift();
-        return adjustPath(path,Math.abs(newDif));
-    }
-    //On réajuste suivant l'axe x
-    if(difX!=0)
-        path[0].x+=dif*difX/Math.abs(difX);//Si difX<0 (West) on multiplie par -1
-    else//ou suivant l'axe y
-        path[0].y+=dif*difY/Math.abs(difY);//Si difY<0 (Nord) on multiplie par -1
-    return true;
-}
-
-function pathHandler(player){
-    if(player.statut=="playing") {
-        var newPoint = {x: player.position.x, y: player.position.y};
-        if(player.path.length>1){
-            var oldPoint = player.path[player.path.length-2];
-            //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
-            if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
-                oldPoint=player.path.pop();
-            }
-        }
-        player.path.push(newPoint);
-    }
-    //Si la taille du chemin est limité : serverData>0, on ajuste la taille du chemin
-    var dif = getPathLength(player.path)- serverData.pathLength;
-    if( dif>0 && serverData.pathLength>0){
-        return adjustPath(player.path,dif);
-    }
-    return false;
-}
-/**
- * @name iteration
- * @description La fonction itération incrémente toutes les clientData.players[player].position déplaçant ainsi chaque
- * moto. Elle ajoute aussi le premier point de à chaque trace clientData.players[player].path
- * @param callback
- */
-function iteration(callback){
-    for(var p in clientData.players){
-        //On transforme ce switch en fonction setMove(player,pas)
-        var player = clientData.players[p];
-        if(player.statut=="playing" || player.statut=="invincible") {
-            switch (player.direction) {
-                case "n":
-                    player.position.y += -serverData.pas;
-                    break;
-                case "e":
-                    player.position.x += serverData.pas;
-                    break;
-                case "s":
-                    player.position.y += serverData.pas;
-                    break;
-                case "w":
-                    player.position.x += -serverData.pas;
-                    break;
-            }
-        }
-        trash = pathHandler(player);
-    }
-    if(callback)
-        callback();
-    return true;
 }
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -471,21 +540,27 @@ app.io.route('newclient', function (req) {
  * @description Quand un client quitte l'application on supprime l'intégralité des ses données présentent sur le serveur
  */
 app.io.route('rmclient', function (req) {
-    removePlayer(serverData.pseudoMap[req.socket.id]);
-    if(serverData.playing) {
-        if (serverData.capacity.current < serverData.capacity.min) {
-            for  (var p in clientData.players) {
-                console.log(clientData.players[p].statut);
-                if (clientData.players[p].statut !== "waiting" && serverData.waitingRoom.indexOf(p)==-1) {
-                    serverData.waitingRoom.push(p);
+    removePlayer(serverData.connections[req.socket.id], function () {
+        if( serverData.playing ){ // Partie en cours
+            if( serverData.capacity.current < serverData.capacity.max //Place disponible
+            && serverData.waitingRoom.length>0) { //Joueur en attente
+                var pseudo = serverData.waitingRoom.shift();
+                var player = clientData.players[pseudo];
+                //Si jamais le joueur et à la fois en jeu est dans la waiting room
+                //while(player.statut!="waiting" && serverData.waitingRoom.length>0){
+                //    player = clientData.players[serverData.waitingRoom.shift()];
+                //}
+                for (var sId in serverData.connections) {
+                    if(serverData.connections[sId]==pseudo){
+                        insertPlayerInGame(player,sId);
+                        break;
+                    }
                 }
+            }else if( serverData.current == 0){//Personne en attente et plus personne dans la partie
+                stopGame();
             }
-            serverData.capacity.current = 0;
-            stopGame();
         }
-    }
-    app.io.broadcast('initialisation', normalize());
-    app.io.broadcast('newPlace', normalize());
+    });
 });
 /**
  * @route availablePseudo
@@ -513,7 +588,7 @@ app.io.route('availablePseudo', function (req) {
  *      > {String} error Message d'une erreure éventuelle
  */
 app.io.route('login', function (req) {
-    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+    if(serverData.connections[req.socket.id] == req.data.pseudo) {
         var resp = {res: initPlayer(req.data)};
         if (!resp.res) {
             resp.error = "La moto" + req.data.moto + " n'est plus disponible";
@@ -530,46 +605,46 @@ app.io.route('login', function (req) {
  * @description
  */
 app.io.route('ready', function (req) {
-    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
-        serverData.waitingRoom.push(req.data.pseudo);
+    if(serverData.connections[req.socket.id] == req.data.pseudo) {
         if(!serverData.playing) {
-            if(initGame()){
-                if(serverData.waitingRoom.length>=serverData.capacity.min){//On a au moins capacity.min joueurs on peut commencer une partie
-                    serverData.capacity.current = serverData.waitingRoom.length;
-                    console.log("current après initgame "+ serverData.capacity.current);
-                    serverData.waitingRoom.length=0;
-                    app.io.broadcast('chat', 'ready');
-                    startGame();
-                } else {
-                    app.io.broadcast('chat', 'attente');
-                    if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
-                        serverData.waitingRoom.push(req.data.pseudo);
-                    }
-                    console.log("non playing waiting "+ serverData.waitingRoom);
-                }
-            }
-        } else if(serverData.capacity.current < serverData.capacity.max){
-
-            for(var p in serverData.waitingRoom){
-                if(serverData.waitingRoom[p]==req.data.pseudo){
-                    serverData.waitingRoom.splice(p,1);
-                }
-            }
-            serverData.capacity.current++;
-            clientData.players[req.data.pseudo].statut = "invincible";
-            app.io.broadcast('initialisation', normalize());
-            app.io.broadcast('start');
-            setTimeout(function () {
-                clientData.players[req.data.pseudo].path = [];
-                clientData.players[req.data.pseudo].path.push({x:clientData.players[req.data.pseudo].position.x,y:clientData.players[req.data.pseudo].position.y});
-                clientData.players[req.data.pseudo].statut = "playing";
-            },serverData.invincibleTime);
-        } else {
-            if(serverData.waitingRoom.indexOf(req.data.pseudo) == -1){
+            if (serverData.waitingRoom.indexOf(req.data.pseudo) == -1) {
                 serverData.waitingRoom.push(req.data.pseudo);
+                req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the game !"});
             }
-            app.io.broadcast('initialisation', normalize());
-            console.log("waiting + playing  : "+ serverData.waitingRoom);
+            if(serverData.waitingRoom.length >= serverData.capacity.min) {
+                initGame(function () {
+                    app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                        startGame();
+                });
+            } else {
+                app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
+            }
+        //Il y a encore de la place dans la partie : on l'ajoute
+        } else if(serverData.capacity.current < serverData.capacity.max){
+            if(serverData.capacity.current+1==serverData.capacity.min){
+                console.log("Restart game");
+                //Si on atteint un nombre suffisant de joueur on restart la partie
+                if (serverData.waitingRoom.indexOf(req.data.pseudo) == -1) {
+                    serverData.waitingRoom.push(req.data.pseudo);
+                    req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the game !"});
+                }
+                stopGame(function () {
+                    initGame(function () {
+                        app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                        startGame();
+                    });
+                });
+            } else {
+                //On insère le joueur dans la partie
+                var player = clientData.players[req.data.pseudo];
+                req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the game !"});
+                insertPlayerInGame(player,req.socket.id);
+            }
+        } else {//Il n'y a plus de place dans la partie on met le joueur en attente
+            if (serverData.waitingRoom.indexOf(req.data.pseudo) == -1) {
+                serverData.waitingRoom.push(req.data.pseudo);
+                req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the wainting room !"});
+            }
         }
     }
 })
@@ -582,7 +657,7 @@ app.io.route('ready', function (req) {
  *      > {char} direction Nouvelle direction du client
  */
 app.io.route('changeDir', function(req){
-    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+    if(serverData.connections[req.socket.id] == req.data.pseudo) {
         var loginJoueur = req.data.pseudo;
         var oldDir = clientData.players[loginJoueur].direction;
         var player = clientData.players[loginJoueur];
@@ -638,7 +713,7 @@ app.listen(3001, function () {
  *      > {String} color Couleur de la moto du joueur
  */
 app.io.route('chat', function (req) {
-    if(serverData.pseudoMap[req.socket.id]===req.data.pseudo) {
+    if(serverData.connections[req.socket.id] == req.data.pseudo) {
         chatData.push(req.data);
         if(chatData.length>5){
             chatData.shift();
