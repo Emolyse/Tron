@@ -313,3 +313,44 @@ form#chat > .input-container > #submit-msg{
     transform: rotate(-90deg);
 }
 
+/****************************
+ *         COMPTEUR         *
+ ***************************/
+.compteur{
+    display: block;
+    z-index: 10;
+    position: absolute;
+    pointer-events: none;
+    top:50%;
+    left: 50%;
+    -webkit-transform: translate3d(-50%, -50%, 0);
+    -moz-transform: translate3d(-50%, -50%, 0);
+    -ms-transform: translate3d(-50%, -50%, 0);
+    -o-transform: translate3d(-50%, -50%, 0);
+    transform: translate3d(-50%, -50%, 0);
+}
+.compteur > svg > circle{
+    position: absolute;
+    top:0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    stroke-dashoffset: 0;
+    stroke-dasharray: 282.17;
+    -webkit-transition: stroke-dashoffset 1s linear;
+    -moz-transition: stroke-dashoffset 1s linear;
+    -ms-transition: stroke-dashoffset 1s linear;
+    -o-transition: stroke-dashoffset 1s linear;
+    transition: stroke-dashoffset 1s linear;
+}
+.compteur > .value{
+    width: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    text-align: center;
+    font-size: 150px;
+    padding-top: 60px;
+    font-family: Arial, sans-serif;
+}

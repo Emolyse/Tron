@@ -62,8 +62,73 @@ var marginCanvas = 10;
  }
 
 (function($) {
-$(document).ready(function() {
 
+    /*****************************
+     *          Compteur         *
+     *****************************/
+    var compteur = {
+        init : function (size,color,strokeWidth) {
+            if(!color)
+                color = "#03A9F4";
+            if(strokeWidth)
+                strokeWidth *= 100/size;
+            else
+                strokeWidth = 10;
+            var rayon = (100-strokeWidth)/2;
+            this.offset = Math.PI*2*rayon;
+            var elt = document.createElement("div");
+            elt.classList.add("compteur");
+            elt.style.height = size+"px";
+            elt.style.width = size+"px";
+            elt.innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none">'+
+                '<circle cx="50" cy="50" r="'+rayon+'" stroke="'+color+'" stroke-width="'+strokeWidth+'" fill-opacity="0"/>'+
+                '</svg>'+
+                '<div class="value"></div>';
+            this.elt = elt;
+            $(elt).hide(0);
+            this.circle = elt.querySelector("svg > circle");
+            this.circle.style.strokeDasharray = this.offset;
+            this.value = elt.querySelector(".value");
+            this.value.style.color = color;
+            this.value.style.fontSize = (size/2)+"px";
+            this.value.style.lineHeight = (size/2)+"px";
+            this.value.style.paddingTop = (size/4)+"px";
+            return elt;
+        },
+        offset:0,
+        //Par defaut on sélectionne le premier compteur existant
+        elt : document.querySelector(".compteur"),
+        circle : document.querySelector(".compteur > svg > circle"),
+        value : document.querySelector(".compteur > .value"),
+        launch : function (time,msg,callback) {
+            this.value.innerHTML = time;
+            this.circle.style.strokeDashoffset = 0;
+            var tis = this;
+            $(this.elt).fadeIn(500,function () {
+                if(Math.round(time)>0){
+                    var decTime = time-1;
+                    tis.circle.style.strokeDashoffset = 0;
+                    tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
+                    var intId = setInterval(function () {
+                        compteur.value.innerHTML = decTime--;
+                        if(decTime<0){
+                            clearInterval(intId);
+                            tis.value.innerHTML = msg;
+                            setTimeout(function () {
+                                $(tis.elt).slideToggle(400, function () {
+                                    if(callback) callback();
+                                });
+                            },1000)
+                        } else {
+                            tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
+                        }
+                    },1000);
+                }
+            });
+        }
+
+    };
+$(document).ready(function() {
 	io = io.connect();
     io.emit("newclient",joueur, function (resp) {
         loadLoginOverlay(resp);
@@ -204,6 +269,26 @@ $(document).ready(function() {
 
         $( window ).resize(resizeHaandler);
 
+        var compteurInGame = Object(compteur);
+        plateau.appendChild(compteurInGame.init(canvasSize/2,"#03A9F4",20));
+        //Si on veut utiliser le compteur
+        io.on("launch", function (data) {
+            compteurInGame.launch(data.time,data.msg)
+        });
+
+
+        //Si un joueur arrive dans la partie on ajoute sa moto
+        io.on("newPlayer", function (player) {
+            console.log("newplayer",player);
+            player = deNormalizePlayer(player);
+            addMoto(player);
+        });
+
+        //Si un joueur quitte la partie on supprime sa moto
+        io.on("removePlayer", function (player) {
+            removeMoto(player);
+        });
+
         //Quand on initialise la partie on charge l'ensemble des évenements qui peuvent survenir pendant la partie
         io.on("initialisation",function (data) { // Une partie commence
             //On charge l'ensemble des motos
@@ -214,17 +299,6 @@ $(document).ready(function() {
                     io.on("iteration",function(data){
                         drawPlayers(deNormalizeAll(data));
                     });
-                });
-                //Si un joueur arrive dans la partie on ajoute sa moto
-                io.on("newPlayer", function (player) {
-                    console.log("newplayer",player);
-                    player = deNormalizePlayer(player);
-                    addMoto(player);
-                });
-
-                //Si un joueur quitte la partie on supprime sa moto
-                io.on("removePlayer", function (player) {
-                    removeMoto(player);
                 });
                 //Lorsque la partie commence en charge le controle utilisateur
                 io.on('start', function(){

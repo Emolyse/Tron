@@ -41,7 +41,7 @@ var serverData = {
                                                                         // de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     connections     : {},//On associe chaque pseudo à son sessionid
-    startTime       : 0,//Durée d'attente avant le lancement de la partie
+    startTime       : 5200,//Durée d'attente avant le lancement de la partie
     invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 };
 
@@ -234,6 +234,7 @@ function startGame () {
     serverData.playing=true;
     serverData.date = new Date();
     clearInterval(refreshIntervalId);
+    app.io.broadcast('launch',{time:Math.round(serverData.startTime/1000),msg:"Go !"})
     setTimeout(function(){
         app.io.broadcast('start');
         refreshIntervalId = setInterval(function(){
@@ -263,6 +264,7 @@ function stopGame (callback){
         if(player.statut != "waiting"){
             serverData.waitingRoom.unshift(p);
             player.statut = "waiting";
+            player.path = [];
         }
     }
     serverData.playing = false;
@@ -617,6 +619,7 @@ app.io.route('ready', function (req) {
                         startGame();
                 });
             } else {
+                app.io.broadcast('newPlayer',normalizePlayer(clientData.players[req.data.pseudo]));
                 app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
             }
         //Il y a encore de la place dans la partie : on l'ajoute
