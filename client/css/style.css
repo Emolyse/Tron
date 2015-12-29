@@ -341,6 +341,17 @@ form#chat > .input-container > #submit-msg{
     -ms-transition: stroke-dashoffset 1s linear;
     -o-transition: stroke-dashoffset 1s linear;
     transition: stroke-dashoffset 1s linear;
+
+    -webkit-transform: rotateZ(-90deg);
+    -moz-transform: rotateZ(-90deg);
+    -ms-transform: rotateZ(-90deg);
+    -o-transform: rotateZ(-90deg);
+    transform: rotateZ(-90deg);
+    -webkit-transform-origin:center;
+    -moz-transform-origin:center;
+    -ms-transform-origin:center;
+    -o-transform-origin:center;
+    transform-origin:center;
 }
 .compteur > .value{
     width: 100%;
@@ -350,4 +361,45 @@ form#chat > .input-container > #submit-msg{
 
     text-align: center;
     font-family: Arial, sans-serif;
+}
+
+/****************************
+ *           SCORE          *
+ ***************************/
+#score{
+    height: 100%;
+    position: fixed;
+    left:0;
+    top: 0;
+}
+#score > .block {
+    position: absolute;
+    left: 0;
+    height: 50px;
+    display: flex;
+    flex-flow: row nowrap;
+    -webkit-transition: top 300ms ease-in-out;
+    -moz-transition: top 300ms ease-in-out;
+    -ms-transition: top 300ms ease-in-out;
+    -o-transition: top 300ms ease-in-out;
+    transition: top 300ms ease-in-out;
+}
+
+
+#score > .block > *{
+    line-height: 20px;
+    font-size: 20px;
+    padding: 15px;
+    color: #fff;
+    text-align: left;
+}
+#score > .block > .position{
+    text-align: center;
+    background-color: #03A9F4;
+    border-radius-bottom-left: 5px;
+    border-radius-top-left: 5px;
+}
+#score > .block > .pseudo{
+}
+#score > .block > .value{
 }

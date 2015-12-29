@@ -1,7 +1,6 @@
 var express = require('express.io');
 var app = express();
 app.http().io();
-var refreshIntervalId;
 
 /**
  * @global clientData
@@ -41,7 +40,7 @@ var serverData = {
                                                                         // de moto
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     connections     : {},//On associe chaque pseudo à son sessionid
-    startTime       : 5200,//Durée d'attente avant le lancement de la partie
+    startTime       : 5000,//Durée d'attente avant le lancement de la partie
     invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 };
 
@@ -93,8 +92,9 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,sId){
     serverData.connections[sId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting"};
+    clientData.players[player.pseudo]= { pseudo:player.pseudo,position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting",score:0};
     console.log("Create",player.pseudo,sId,clientData.list);
+    console.log(serverData.waitingRoom);
 }
 
 /**
@@ -152,6 +152,21 @@ function removePlayer(pseudo,callback){
 }
 
 /**
+ * @name initPlayerPosition
+ * @description Initialise les positions des joueurs arrivant le commencement d'une partie
+ * @param player {Object}
+ * @param indice position in the waiting room
+ * @param callback
+ */
+
+function initPlayerPosition(player,indice,callback){
+    var pos = serverData.initial_position[indice];
+    player.position.x = pos.x;
+    player.position.y = pos.y;
+    if(callback) callback();
+}
+
+/**
  * @name initPlayerInGame
  * @description Initialise et ajoute un joueur à une partie en cours ou sur le point de commencer
  * @param player
@@ -160,6 +175,7 @@ function removePlayer(pseudo,callback){
  */
 function initPlayerInGame(player, callback){
     if(serverData.capacity.current>=serverData.capacity.max){
+        console.log(clientData.players);
         console.log("Il n'y plus de position initiale disponible");
         return false;
     }
@@ -233,11 +249,17 @@ function initGame (callback) {
 function startGame () {
     serverData.playing=true;
     serverData.date = new Date();
-    clearInterval(refreshIntervalId);
+    if(serverData.refreshIntervalId) {
+        clearInterval(serverData.refreshIntervalId);
+        serverData.refreshIntervalId = null;
+        //console.log("Clear Interval");
+        //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
+    }
     app.io.broadcast('launch',{time:Math.round(serverData.startTime/1000),msg:"Go !"})
     setTimeout(function(){
         app.io.broadcast('start');
-        refreshIntervalId = setInterval(function(){
+        //console.log("Set Interval");
+        serverData.refreshIntervalId = setInterval(function(){
             iteration(function () {
                 var normalizeData = normalize();
                 app.io.broadcast('iteration', normalizeData);
@@ -253,10 +275,16 @@ function startGame () {
  * @param callback
  */
 function stopGame (callback){
-    console.log("Partie intérompue");
-    clearInterval(refreshIntervalId);
+    console.log("Partie Interrompue");
+    if(serverData.refreshIntervalId){
+        clearInterval(serverData.refreshIntervalId);
+        serverData.refreshIntervalId = null;
+        console.log("Clear Interval");
+        //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
+    }
     //On signale à tout le monde l'intérruption de la partie
     app.io.broadcast("end");
+    app.io.broadcast("chat",{pseudo:"server",msg:"Game finished !"});
     //Ici on rajoute les joueur != waiting à la waitingroom afin qu'ils soient les premiers ajouté à la création de
     // partie
     for(var p in clientData.players){
@@ -265,6 +293,7 @@ function stopGame (callback){
             serverData.waitingRoom.unshift(p);
             player.statut = "waiting";
             player.path = [];
+            serverData.capacity.current--;
         }
     }
     serverData.playing = false;
@@ -373,6 +402,7 @@ function iteration(callback){
  * @description On normalize les données d'un client
  * @return client normalisé
  */
+//var iter = 0;
 function normalizePlayer(p){
     var player = JSON.parse(JSON.stringify(p));
     player.position.x/=serverData.gameSize.w;
@@ -403,6 +433,7 @@ function normalize () {
  *     plateau lorsqu'il touche une bordure
  */
 function collision () {
+    var stopTheGame = true;
     var grid = [];
     for (var i = 0; i < serverData.gameSize.w; i++) {
         grid[i]=[];
@@ -426,21 +457,25 @@ function collision () {
                 var point = player.path[0];
                 if(point.x<0 || point.y<0) break;
                 var oldPoint, xmax,ymax;
-                var x,y;
-                var gridVal = grid[point.x][point.y];
-                if (typeof gridVal == "number") {
-                    clientData.players[clientData.list[gridVal]].statut = "dead";
-                }
-                grid[point.x][point.y] = "t";
-                for (var j=1;j<player.path.length-1;j++) {
+                //var gridVal = grid[point.x][point.y];
+                //if (typeof gridVal == "number") {
+                //    clientData.players[clientData.list[gridVal]].statut = "dead";
+                //}
+                //grid[point.x][point.y] = "t";
+                for (var j=1;j<player.path.length;j++) {
                     oldPoint = player.path[j-1];
                     point = player.path[j];
                     xmax= point.x-oldPoint.x;
                     ymax= point.y-oldPoint.y;
-                    x = xmax>0?oldPoint.x+1:point.x;
-                    y = ymax>0?oldPoint.y+1:point.y;
                     if(xmax==0){
-                        ymax = y+Math.abs(ymax);
+                        var y;
+                        if(ymax>0){
+                            y = oldPoint.y;
+                            ymax = point.y;
+                        } else {
+                            y = point.x+1;
+                            ymax = oldPoint.x+1;
+                        }
                         for (;y< ymax; y++) {
                             gridVal = grid[point.x][y];
                             if(typeof gridVal == "number"){
@@ -449,7 +484,14 @@ function collision () {
                             grid[point.x][y]="t";
                         }
                     }else{
-                        xmax = x+Math.abs(xmax);
+                        var x;
+                        if(xmax>0){
+                            x = oldPoint.x;
+                            xmax = point.x;
+                        } else {
+                            x = point.x+1;
+                            xmax = oldPoint.x+1;
+                        }
                         for (;x<xmax; x++) {
                             gridVal = grid[x][point.y];
                             if(typeof gridVal == "number"){
@@ -487,7 +529,9 @@ function collision () {
                 }
             }
         }
-
+        //if(iter++==200){
+        //    app.io.broadcast("drawGrid",grid);
+        //}
         //On gère qu'un statut invincible boucle sur les bordures
         if (player.statut=="invincible"){
             switch (player.direction) {
@@ -509,7 +553,24 @@ function collision () {
                     } break;
             }
         }
+
+        if(clientData.players[i].statut != 'dead'){
+            stopTheGame = false;
+        }
     }
+    if(stopTheGame) stopGame(function () {
+        //Si il y a suffisament de monde dans la waiting room on relance automatiquement la partie au bout de 10 sec
+        if(serverData.waitingRoom.length >= serverData.capacity.min){
+            app.io.broadcast('chat', {pseudo: "server", msg: "The game will restart in 15 seconds"});
+            setTimeout(function () {
+                    initGame(function () {
+                        app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                        console.log("## Start Game : Relance auto");
+                        startGame();
+                    });
+            },15000);
+        }
+    });
 }
 /****************************************
  *       DIALOGUE Client/Server         *
@@ -616,11 +677,17 @@ app.io.route('ready', function (req) {
             if(serverData.waitingRoom.length >= serverData.capacity.min) {
                 initGame(function () {
                     app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
-                        startGame();
+                    console.log("## Start Game : Capacité min atteinte");
+                    startGame();
                 });
             } else {
-                app.io.broadcast('newPlayer',normalizePlayer(clientData.players[req.data.pseudo]));
-                app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
+                var player = clientData.players[req.data.pseudo];
+                initPlayerPosition(player, serverData.waitingRoom.length-1, function () {
+                    app.io.broadcast("chat",{pseudo:"server",msg:"New player"});
+                    app.io.broadcast('newPlayer',normalizePlayer(player));
+                    console.log(normalizePlayer(player));
+                    app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
+                })
             }
         //Il y a encore de la place dans la partie : on l'ajoute
         } else if(serverData.capacity.current < serverData.capacity.max){
@@ -634,6 +701,7 @@ app.io.route('ready', function (req) {
                 stopGame(function () {
                     initGame(function () {
                         app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                        console.log("## Start Game : Restart après leave");
                         startGame();
                     });
                 });

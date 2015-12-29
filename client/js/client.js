@@ -267,9 +267,9 @@ $(document).ready(function() {
         $("#plateau").append(canvas);
         ctx = canvas.getContext("2d");
 
-        $( window ).resize(resizeHaandler);
+        $( window ).resize(resizeHandler);
 
-        compteurInGame = Object(compteur);
+        var compteurInGame = Object(compteur);
         plateau.appendChild(compteurInGame.init(canvasSize/2,"#03A9F4",20));
         //Si on veut utiliser le compteur
         io.on("launch", function (data) {
@@ -282,11 +282,13 @@ $(document).ready(function() {
             console.log("newplayer",player);
             player = deNormalizePlayer(player);
             addMoto(player);
+            addScore(player.pseudo);
         });
 
         //Si un joueur quitte la partie on supprime sa moto
         io.on("removePlayer", function (player) {
             removeMoto(player);
+            removeScore(player.pseudo);
         });
 
         //Quand on initialise la partie on charge l'ensemble des évenements qui peuvent survenir pendant la partie
@@ -294,12 +296,14 @@ $(document).ready(function() {
             //On charge l'ensemble des motos
             console.log("initialisation");
             regenerateMotos(deNormalizeAll(data), function () {
-                drawPlayers(deNormalizeAll(data), function () {
+                //drawPlayers(deNormalizeAll(data), function () {
                     //A chaque itération on met à jour le plateau
+                    trash = loadScore(data.players);
                     io.on("iteration",function(data){
                         drawPlayers(deNormalizeAll(data));
+                        updateScore(data.players);
                     });
-                });
+                //});
                 //Lorsque la partie commence en charge le controle utilisateur
                 io.on('start', function(){
                     console.log("start");
@@ -482,7 +486,7 @@ $(document).ready(function() {
      ****************************************/
 
     /*Redimentionne le canvas quand la taille de la fenêtre change*/
-    function resizeHaandler() {
+    function resizeHandler() {
         canvasSize = Math.min(innerHeight, innerWidth);
         if(canvasSize==innerHeight){
             canvasSize-=marginCanvas*2;
@@ -548,6 +552,7 @@ $(document).ready(function() {
         img.src = motoPath + motos[moto].file;
         motoElt.appendChild(img);
         document.getElementById("plateau").appendChild(motoElt);
+        drawMoto(player.position.x,player.position.y,motoElt,player.direction);
         return true;
     }
 
@@ -574,10 +579,50 @@ $(document).ready(function() {
     /****************************************
      *                 SCORE                *
      ****************************************/
-    function loadScore(){
-        var score = document.createElement("section");
-        score.id = "score";
+    function loadScore(players){
+        if($("#score").length>0){
+            document.querySelector("#score").innerHTML = "";
+        } else {
+            var score = document.createElement("section");
+            score.id = "score";
+            document.body.appendChild(score);
+        }
+        for(var pseudo in players){
+            if(players[pseudo].statut != "waiting")
+                trash = addScore(pseudo);
+        }
+        true;
+    }
 
+    function addScore(pseudo){
+        var score = document.querySelector("#score");
+        var block = document.createElement("div");
+        block.classList.add("block")
+        block.id="score_"+pseudo;
+        $("<div class='position'> 0 </div>").appendTo(block);
+        $("<div class='pseudo'>"+pseudo+"</div>").appendTo(block);
+        $("<div class='value'>"+0+"</div>").appendTo(block);
+        score.appendChild(block);
+        block.style.top = ((score.children.length-1)*(block.clientHeight+5)+5)+"px";
+        return block;
+    }
+    function removeScore(pseudo){
+        $("#score_"+pseudo).remove();
+    }
+    function updateScore(players){
+        var sortedKeys = Object.keys(players).sort(function (a,b) {
+            return players[b].score-players[a].score;
+        });
+        for (var i = 0; i < sortedKeys.length; i++) {
+            if(players[sortedKeys[i]].statut != "waiting")
+            {
+                var block = document.querySelector("#score_" + sortedKeys[i]);
+                block.style.top = (i * (block.clientHeight + 5) + 5) + "px";
+                console.log(i, block.clientHeight);
+                block.querySelector(".position").innerHTML = (i + 1) + "";
+                block.querySelector(".value").innerHTML = players[sortedKeys[i]].score;
+            }
+        }
     }
 
     /****************************************
@@ -652,6 +697,7 @@ $(document).ready(function() {
 
     //Fonction de debug qui affiche la grille de collision envoyée par le serveur
     //io.on("drawGrid", function (data) {
+    //    $("#truc").remove();
     //    var canGrid = document.createElement("canvas");
     //    canGrid.id = "truc";
     //    canGrid.width = 500;
@@ -660,9 +706,10 @@ $(document).ready(function() {
     //    canGrid.style.top = 0;
     //    canGrid.style.left = 0;
     //    canGrid.style.backgroundColor= "#fff";
+    //    canGrid.style.opacity= 0.9;
     //    document.body.appendChild(canGrid);
     //    var ctxGrid = canGrid.getContext('2d');
-    //    console.log(data);
+    //    //console.log(data);
     //    for (var i = 0; i < 500; i++) {
     //        for (var j = 0; j < 500; j++) {
     //            if(data[i][j]==undefined)
