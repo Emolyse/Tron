@@ -336,7 +336,6 @@ form#chat > .input-container > #submit-msg{
     height: 100%;
     width: 100%;
     stroke-dashoffset: 0;
-    stroke-dasharray: 282.17;
     -webkit-transition: stroke-dashoffset 1s linear;
     -moz-transition: stroke-dashoffset 1s linear;
     -ms-transition: stroke-dashoffset 1s linear;
@@ -350,7 +349,5 @@ form#chat > .input-container > #submit-msg{
     top: 0;
 
     text-align: center;
-    font-size: 150px;
-    padding-top: 60px;
     font-family: Arial, sans-serif;
 }

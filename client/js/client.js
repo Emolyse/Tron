@@ -85,7 +85,7 @@ var marginCanvas = 10;
                 '</svg>'+
                 '<div class="value"></div>';
             this.elt = elt;
-            $(elt).hide(0);
+            $(elt).hide();
             this.circle = elt.querySelector("svg > circle");
             this.circle.style.strokeDasharray = this.offset;
             this.value = elt.querySelector(".value");
@@ -104,27 +104,27 @@ var marginCanvas = 10;
             this.value.innerHTML = time;
             this.circle.style.strokeDashoffset = 0;
             var tis = this;
-            $(this.elt).fadeIn(500,function () {
-                if(Math.round(time)>0){
-                    var decTime = time-1;
-                    tis.circle.style.strokeDashoffset = 0;
-                    tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
-                    var intId = setInterval(function () {
-                        compteur.value.innerHTML = decTime--;
-                        if(decTime<0){
-                            clearInterval(intId);
-                            tis.value.innerHTML = msg;
-                            setTimeout(function () {
-                                $(tis.elt).slideToggle(400, function () {
-                                    if(callback) callback();
-                                });
-                            },1000)
-                        } else {
-                            tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
-                        }
-                    },1000);
-                }
-            });
+            $(this.elt).fadeIn(500);
+            if(Math.round(time)>0){
+                var decTime = time-1;
+                tis.circle.style.strokeDashoffset = 0;
+                tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
+                var intId = setInterval(function () {
+                    compteur.value.innerHTML = decTime--;
+                    if(decTime<0){
+                        clearInterval(intId);
+                        tis.value.innerHTML = msg;
+                        setTimeout(function () {
+                            $(tis.elt).slideToggle(400, function () {
+                                tis.circle.style.strokeDashoffset = 0;
+                                if(callback) callback();
+                            });
+                        },1000)
+                    } else {
+                        tis.circle.style.strokeDashoffset = tis.offset*(decTime/time-1);
+                    }
+                },1000);
+            }
         }
 
     };
@@ -269,7 +269,7 @@ $(document).ready(function() {
 
         $( window ).resize(resizeHaandler);
 
-        var compteurInGame = Object(compteur);
+        compteurInGame = Object(compteur);
         plateau.appendChild(compteurInGame.init(canvasSize/2,"#03A9F4",20));
         //Si on veut utiliser le compteur
         io.on("launch", function (data) {
