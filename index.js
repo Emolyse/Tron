@@ -177,7 +177,6 @@ function initPlayerPosition(player,indice,callback){
  */
 function initPlayerInGame(player, callback){
     if(serverData.capacity.current>=serverData.capacity.max){
-        //console.log(clientData.players);
         console.log("Il n'y plus de position initiale disponible");
         return false;
     }
@@ -254,8 +253,6 @@ function startGame () {
         if (serverData.refreshIntervalId!=-1) {
             clearInterval(serverData.refreshIntervalId);
             serverData.refreshIntervalId = -1;
-            //console.log("Clear Interval");
-            //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
         }
         app.io.broadcast('launch', {time: Math.round(serverData.startTime / 1000), msg: "Go !"});
         serverData.date = new Date();
@@ -263,7 +260,6 @@ function startGame () {
             serverData.refreshTimoutId = -1;
             serverData.date = new Date();
             app.io.broadcast('start');
-            //console.log("Set Interval");
             serverData.refreshIntervalId = setInterval(function () {
                 iteration(function () {
                     var normalizeData = normalize();
@@ -288,8 +284,6 @@ function stopGame (winner,callback){
     if(serverData.refreshIntervalId!=-1){
         clearInterval(serverData.refreshIntervalId);
         serverData.refreshIntervalId = -1;
-        //console.log("Clear Interval");
-        //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
     }
     //On signale à tout le monde l'intérruption de la partie
     app.io.broadcast("end",clientData.players);
@@ -356,7 +350,7 @@ function pathHandler(player){
             var oldPoint = player.path[player.path.length-2];
             //Si on reste sur le meme axe on supprime le dernier point du chemin avant d'ajouter le nouveau
             if(newPoint.x-oldPoint.x==0 || newPoint.y-oldPoint.y==0){
-                oldPoint=player.path.pop();
+                trash=player.path.pop();
             }
         }
         player.path.push(newPoint);
@@ -474,11 +468,6 @@ function collision () {
                     var point = player.path[0];
                     if (point.x < 0 || point.y < 0) break;
                     var oldPoint, xmax, ymax;
-                    //var gridVal = grid[point.x][point.y];
-                    //if (typeof gridVal == "number") {
-                    //    clientData.players[clientData.list[gridVal]].statut = "dead";
-                    //}
-                    //grid[point.x][point.y] = "t";
                     for (var j = 1; j < player.path.length; j++) {
                         oldPoint = player.path[j - 1];
                         point = player.path[j];
@@ -549,7 +538,6 @@ function collision () {
                         xmax = x + serverData.motoSize.l;
                         break;
                 }
-                //console.log(x,xmax,y,ymax);
                 for (; x < xmax; x++) {
                     for (var j = y; j < ymax; j++) {
                         var gridVal = grid[x][j];
@@ -564,9 +552,6 @@ function collision () {
                     }
                 }
             }
-            //if(iter++==200){
-            //    app.io.broadcast("drawGrid",grid);
-            //}
             //On gère qu'un statut invincible boucle sur les bordures
             if (player.statut == "invincible") {
                 switch (player.direction) {
@@ -659,10 +644,6 @@ app.io.route('rmclient', function (req) {
             && serverData.waitingRoom.length>0) { //Joueur en attente
                 var pseudo = serverData.waitingRoom.shift();
                 var player = clientData.players[pseudo];
-                //Si jamais le joueur et à la fois en jeu est dans la waiting room
-                //while(player.statut!="waiting" && serverData.waitingRoom.length>0){
-                //    player = clientData.players[serverData.waitingRoom.shift()];
-                //}
                 for (var sId in serverData.connections) {
                     if(serverData.connections[sId]==pseudo){
                         insertPlayerInGame(player,sId);
@@ -728,7 +709,7 @@ app.io.route('login', function (req) {
 
 /**
  * @route ready
- * @description
+ * @description Gestion de l'arrivée de nouveau joueurs suivant la situation de jeu
  */
 app.io.route('ready', function (req) {
     if(serverData.connections[req.socket.id] == req.data.pseudo) {
@@ -789,8 +770,8 @@ app.io.route('ready', function (req) {
             }
         }
     }
-})
-////////////    INGAME   /////////////////
+});
+
 /**
  * @route changeDir
  * @description Cette route écoute chaque changement de direction des clients joueur. Elle modifie ainsi
@@ -866,9 +847,9 @@ app.io.route('chat', function (req) {
  * @description Route permettant de debugguer depuis un client mobile (en affichant les données sur le server)
  * @request {Object} data que la client veut afficher
  */
-app.io.route('console', function(req){
-    console.log(req.data);
-});
+//app.io.route('console', function(req){
+//    console.log(req.data);
+//});
 
 
 app.listen(3001, function () {

@@ -30,20 +30,38 @@ var marginCanvas = 10;
 
 
 /*****************************
- *        Event handlers     *
+ *      Selector handler     *
  *****************************/
- function motoSelector (target) {
+/**
+ * @name motoSelector
+ * @description Gère la sélection d'une moto
+ * @param target
+ */
+function motoSelector(target) {
     joueur.moto = $(target).data("motoId");
-    $("#motoSelector>img.selected").removeClass("selected");
+    $("#motoSelector > img.selected").removeClass("selected");
     $(target).addClass("selected");
- }
+}
 
 (function($) {
 
     /*****************************
      *          Compteur         *
      *****************************/
+    /**
+     * @global compteur
+     * @description L'objet compteur peut être réutilsé à l'aide de Object(compteur) afin de créer des comptes à rebours
+     * @type {{init: compteur.init, offset: number, elt: Element, circle: Element, value: Element, launch: compteur.launch}}
+     */
     var compteur = {
+        /**
+         * @name compteur.init
+         * @description Crée l'élément de compte à rebours suivant les paramètres donnés
+         * @param {int} size Diamètre du cercle
+         * @param {String} color Couleur
+         * @param {int} strokeWidth Epaisseur du trait formant le cercle
+         * @returns {Element}
+         */
         init : function (size,color,strokeWidth) {
             if(!color)
                 color = "#03A9F4";
@@ -77,6 +95,13 @@ var marginCanvas = 10;
         elt : document.querySelector(".compteur"),
         circle : document.querySelector(".compteur > svg > circle"),
         value : document.querySelector(".compteur > .value"),
+        /**
+         * @name compteur.launch
+         * @description Lance un compte à rebours
+         * @param {int} time Durée du compte à rebours
+         * @param {String} msg Message affiché à la fin du compte à rebours
+         * @param callback
+         */
         launch : function (time,msg,callback) {
             this.value.innerHTML = time;
             this.circle.style.strokeDashoffset = 0;
@@ -107,17 +132,29 @@ var marginCanvas = 10;
     };
 $(document).ready(function() {
 	io = io.connect();
+
+
+    //On prévient le serveur de l'arrivé du nouveau client, on lui envoie le précent pseudo
     io.emit("newclient",joueur, function (resp) {
         loadLoginOverlay(resp);
     });
 
+    //Quand le client quitte la page on prévient le serveur
     window.addEventListener('beforeunload',function(){
         io.emit("rmclient",joueur);
     });
+
     /****************************************
-     *       DIALOGUE Client/Server         *
+     *               CONNEXION              *
      ****************************************/
-    ////////////    LOGIN   /////////////////
+    /**
+     * @name loadLoginOverlay
+     * @description Crée l'écran de connexion au jeu et gère le choix et la validation du pseudo et de la moto
+     * @param {Object} loginData
+     *          > {Array<String>} availableMotos Liste des motos disponibles
+     *          > {boolean} availablePseudo Si le précédent pseudo est toujours disponible ou non
+     * @param callback
+     */
     function loadLoginOverlay(loginData, callback) {
         //On créé la sélection de motos disponibles
         var motoElements = "";
@@ -143,10 +180,18 @@ $(document).ready(function() {
         "<form id='formLogin' name='login' onsubmit='return false;'>" + pseudoElement +
         "<input id='loginBTN' name='submit' type='submit' value='Jouer' />" +
         "</form></div></div>";
+        //On sélectionne la dernière moto par default
+        joueur.moto = $("#motoSelector>img").last().addClass("selected").data("motoId");
         //On écoute si une moto est sélectionnée par un autre joueur
         io.on("motoUnavailable", function (data) {
-            //Si un autre joueur a sélectionné une moto on la supprime de la liste
-            $("#loginMoto"+data.moto).remove();
+            //Si un autre joueur a sélectionné une moto on la supprime de la liste et on reselectionne la dernière
+            var $imgMoto = $("#motoSelector>img");
+            var $rmMoto = $("#loginMoto"+data.moto);
+            var hasClassSelected = $rmMoto.hasClass("selected");
+            $rmMoto.remove();
+            if($imgMoto.length>0 && hasClassSelected){
+                joueur.moto = $imgMoto.last().addClass("selected").data("motoId");
+            }
         });
         //On écoute si une moto est de nouveau disponible
         io.on("motoAvailable", function (data) {
@@ -198,23 +243,24 @@ $(document).ready(function() {
             }
         });
     }
-
-    /** Démarrage de Tron **/
+    /**
+     * @name login
+     * @description Une fois le pseudo et la moto validés on démarre le chargement du jeu et le chat
+     */
     function login() {
         //Une fois les données reccueillie on signal au serveur que notre profil peut etre créé
         io.emit("login", joueur, function (resp) {
             if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
-
+                alert(resp.error);
             } else {
-                //io.removeListener('motoUnavailable');
                 delete io.$events.motoUnavailable;
-                //io.removeListener('motoAvailable');
                 delete io.$events.motoAvailable;
                 //On fait disparaitre l'overlay
                 var $overlay = $("div.overlay");
                 if ($overlay.is(":visible")) {
                     $overlay.animate({height: 0}, 400, null, function () {
                         $overlay.remove();
+                        //On charge l'environnement de jeu et le chat
                         loadGame();
                         loadChat();
                     });
@@ -223,12 +269,15 @@ $(document).ready(function() {
         });
     }
 
-
     /****************************************
      *                  JEU                 *
      ****************************************/
-    ////////////    INIT GAME ////////////////
+    /**
+     * @name loadGame
+     * @description On charge l'environnement de jeu et on déclenche l'écoute d'évenement serveur
+     */
     function loadGame(){
+        //On crée le plateau de jeu
         plateau = document.createElement("div");
         plateau.id = "plateau";
         canvasSize = Math.min(innerHeight, innerWidth);
@@ -248,15 +297,14 @@ $(document).ready(function() {
 
         $( window ).resize(resizeHandler);
 
+        //On initialise le compte à rebours
         var compteurInGame = Object(compteur);
         plateau.appendChild(compteurInGame.init(canvasSize/2,"#03A9F4",20));
-        //Si on veut utiliser le compteur
         io.on("launch", function (data) {
             compteurInGame.launch(data.time,data.msg)
         });
 
-
-        //Si un joueur arrive dans la partie on ajoute sa moto
+        //Si un joueur arrive dans la partie on ajoute sa moto et son bloc score
         io.on("newPlayer", function (player) {
             console.log("newplayer",player);
             player = deNormalizePlayer(player);
@@ -264,7 +312,7 @@ $(document).ready(function() {
             addScore(player.pseudo,player.moto,player.win);
         });
 
-        //Si un joueur quitte la partie on supprime sa moto
+        //Si un joueur quitte la partie on supprime sa moto et son bloc score
         io.on("removePlayer", function (player) {
             removeMoto(player);
             removeScore(player.pseudo);
@@ -303,11 +351,19 @@ $(document).ready(function() {
                 });
             });
         });
+
+        //On signal au serveur qu'on est prêt
         io.emit("ready",joueur);
     }
 
-
-    ////////////   CONTROLS  /////////////////
+    /****************************************
+     *     PRISE EN CHARGE DES CONTROLES    *
+     ****************************************/
+    /**
+     * @name orientationHandler
+     * @description Prise en charge d'un évenement de changement d'orientation d'un appareil mobile
+     * @param event
+     */
     function orientationHandler(event){
         var beta = 0, gamma = 0;
         if (initGamma) {
@@ -326,6 +382,11 @@ $(document).ready(function() {
         var data = {pseudo: joueur.pseudo, direction: direction};
         io.emit('changeDir', data);
     }
+    /**
+     * @name controlKeyHandler
+     * @description Prise en charge d'un évenement d'appui sur une touche
+     * @param evt
+     */
     function controlKeyHandler(evt){
         if ((evt.keyCode >= 37 && evt.keyCode <= 40) || (evt.which >= 37 && evt.which <= 40)) {
             var key = evt.which;
@@ -338,6 +399,10 @@ $(document).ready(function() {
             io.emit('changeDir', data);
         }
     }
+    /**
+     * @name initVirtualControl
+     * @description Ajout de touches virtuelles sur les mobiles ne naviguant pas sur chrome
+     */
     function initVirtualControl(){
         //Sur les mobiles on ajoute des touches tactiles virtuelles
         if( (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
@@ -368,14 +433,16 @@ $(document).ready(function() {
         }
     }
 
-    ////////////    INGAME   /////////////////
-
-
-
     /****************************************
      *       DESSINS DES TRACES ET MOTOS    *
      ****************************************/
-    /*On parcourt les donnees envoyees par le serveur pour dessiner les joueurs*/
+    /**
+     * @name drawPlayers
+     * @description On parcourt les donnees envoyees par le serveur pour mettre à jour les motos et les traces des joueurs
+     * @param {Element} data
+     * @param callback
+     * @returns {boolean}
+     */
     function drawPlayers(data,callback){
         ctx.clearRect(0,0,canvasSize,canvasSize);
         var players = data.players;
@@ -423,24 +490,23 @@ $(document).ready(function() {
             callback();
         return true;
     }
-
     /**
      * @name drawMoto
      * @description on met à jour l'orientation et la position de la moto
-     * @param x nouvelle position horizontale de la moto
-     * @param y nouvelle position verticale de la moto
-     * @param currentmoto élément js de la moto
-     * @param direction de la moto
+     * @param {float} x nouvelle position horizontale de la moto
+     * @param {float} y nouvelle position verticale de la moto
+     * @param {Element} currentmoto élément js de la moto
+     * @param {char} direction de la moto
      * @param callback
      */
     function drawMoto(x, y, currentmoto, direction,callback){
         var degres = 0;
         switch(direction) {
             case "w":
-                    degres = 180;
+                degres = 180;
                 break;
             case "n":
-                    degres = -90;
+                degres = -90;
                 break;
             case "e":
                 degres = 0;
@@ -462,61 +528,20 @@ $(document).ready(function() {
     }
 
     /****************************************
-     *       FONCTIONS UTILES               *
+     *          MOTO ELEMENT                *
      ****************************************/
-
-    /*Redimentionne le canvas quand la taille de la fenêtre change*/
-    function resizeHandler() {
-        canvasSize = Math.min(innerHeight, innerWidth);
-        if(canvasSize==innerHeight){
-            canvasSize-=marginCanvas*2;
-        }
-        var plateau = document.getElementById("plateau");
-        plateau.style.height = canvasSize+"px";
-        plateau.style.width = canvasSize+"px";
-        canvas.width = canvasSize;
-        canvas.height = canvasSize;
-    }
-
-    function deNormalizePlayer(p){
-        var player = jQuery.extend(true, {}, p);
-        player.position.x *= canvasSize;
-        player.position.y *= canvasSize;
-        player.motoSize.l *= canvasSize;
-        player.motoSize.w *= canvasSize;
-        $.each(player.path, function(j){
-            player.path[j].x *= canvasSize;
-            player.path[j].y *= canvasSize;
-        });
-        return player;
-    }
-    /**
-     * @name deNormalizeAll
-     * @description Convertit les coordonnées du jeu de données normalisé en position adaptées à l'écran
-     * @param data jeu de données normalisé
-     * @return {Object} jeu de données dénormalisé
-     */
-    function deNormalizeAll(data){
-        var playersData = jQuery.extend(true, {}, data);
-        $.each(playersData.players, function(i) {
-            playersData.players[i] = deNormalizePlayer(playersData.players[i])
-        });
-        return playersData;
-    }
-
     /**
      * @name removeMoto
      * @description supprime l'élément moto d'un joueur
-     * @param player
+     * @param {Object} player
      */
     function removeMoto(player){
         $("#moto"+player.moto).remove();
     }
-
     /**
      * @name addMoto
      * @description crée l'élément moto d'un joueur et l'ajoute au plateau
-     * @param player
+     * @param {Object} player
      * @returns {boolean}
      */
     function addMoto(player){
@@ -535,11 +560,10 @@ $(document).ready(function() {
         drawMoto(player.position.x,player.position.y,motoElt,player.direction);
         return true;
     }
-
     /**
      * @name regenerateMoto
      * @description supprime et réinsère tous les éléments moto des joueurs en jeu
-     * @param playersData
+     * @param {Object} playersData
      * @param callback
      * @returns {boolean}
      */
@@ -557,8 +581,64 @@ $(document).ready(function() {
     }
 
     /****************************************
+     *           OUTILS RESPONSIVE          *
+     ****************************************/
+    /**
+     * @name resizeHandler
+     * @description Redimentionne le canvas quand la taille de la fenêtre change
+     */
+    function resizeHandler() {
+        canvasSize = Math.min(innerHeight, innerWidth);
+        if(canvasSize==innerHeight){
+            canvasSize-=marginCanvas*2;
+        }
+        var plateau = document.getElementById("plateau");
+        plateau.style.height = canvasSize+"px";
+        plateau.style.width = canvasSize+"px";
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+    }
+    /**
+     * @name deNormalizePlayer
+     * @description Convertit les coordonnées du jeu de données normalisé en position adaptées à l'écran pour un joueur
+     * @param {Object} p joueur normalisé
+     * @return {Object} joueur dénormalisé
+     */
+    function deNormalizePlayer(p){
+        var player = jQuery.extend(true, {}, p);
+        player.position.x *= canvasSize;
+        player.position.y *= canvasSize;
+        player.motoSize.l *= canvasSize;
+        player.motoSize.w *= canvasSize;
+        $.each(player.path, function(j){
+            player.path[j].x *= canvasSize;
+            player.path[j].y *= canvasSize;
+        });
+        return player;
+    }
+    /**
+     * @name deNormalizeAll
+     * @description Convertit les coordonnées du jeu de données normalisé en position adaptées à l'écran pour tous les joueurs
+     * @param {Object} data jeu de données normalisé
+     * @return {Object} jeu de données dénormalisé
+     */
+    function deNormalizeAll(data){
+        var playersData = jQuery.extend(true, {}, data);
+        $.each(playersData.players, function(i) {
+            playersData.players[i] = deNormalizePlayer(playersData.players[i])
+        });
+        return playersData;
+    }
+
+    /****************************************
      *                 SCORE                *
      ****************************************/
+    /**
+     * @name loadScore
+     * @description Efface et reconstruit le tableau des scores
+     * @param {Object} players
+     * @returns {boolean}
+     */
     function loadScore(players){
         if($("#score").length>0){
             document.querySelector("#score").innerHTML = "";
@@ -571,7 +651,6 @@ $(document).ready(function() {
                 || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/BlackBerry/i)
                 || navigator.userAgent.match(/Windows Phone/i)
             ){
-                console.log(Math.min(innerHeight, innerWidth));
                 score.style.top = (Math.min(innerHeight, innerWidth)+15)+"px";
             }
         }
@@ -582,7 +661,14 @@ $(document).ready(function() {
         updateScoreByWin(players);
         return true;
     }
-
+    /**
+     * @name addScore
+     * @description Ajoute le bloc score dans nouvel arrivant dans le tableau
+     * @param {String} pseudo Identifiant du nouvel arrivant
+     * @param {String} moto Couleur
+     * @param {Integer} win Nombre de victoire
+     * @returns {Element} Le bloc
+     */
     function addScore(pseudo,moto,win){
         var score = document.querySelector("#score");
         var block = document.createElement("div");
@@ -595,9 +681,20 @@ $(document).ready(function() {
         block.style.top = ((score.children.length-1)*(block.clientHeight+5)+5)+"px";
         return block;
     }
+    /**
+     * @name removeScore
+     * @description Supprime le bloc score d'un joueur
+     * @param {String} pseudo Identifiant du joueur
+     */
     function removeScore(pseudo){
         $("#score_"+pseudo).remove();
     }
+    /**
+     * @name updateScore
+     * @description Mets à jour le tableau des scores suivant l'ordre de sortedKeys
+     * @param {Object} players
+     * @param {Array<String>} sortedKeys
+     */
     function updateScore(players,sortedKeys){
         for (var i = 0; i < sortedKeys.length; i++) {
             if(players[sortedKeys[i]].statut != "waiting")
@@ -609,12 +706,22 @@ $(document).ready(function() {
             }
         }
     }
+    /**
+     * @name updateScoreByTime
+     * @description Tri le tableau des scores suivant leur durée dans la partie
+     * @param {Object} players
+     */
     function updateScoreByTime(players){
         var sortedKeys = Object.keys(players).sort(function (a,b) {
             return players[b].score-players[a].score;
         });
         updateScore(players,sortedKeys);
     }
+    /**
+     * @name updateScoreByWin
+     * @description Tri le tableau des scores suivant leur nombre de partie gagnée
+     * @param {Object} players
+     */
     function updateScoreByWin(players){
         var sortedKeys = Object.keys(players).sort(function (a,b) {
             return players[b].win-players[a].win;
@@ -625,6 +732,17 @@ $(document).ready(function() {
     /****************************************
      *                  CHAT                *
      ****************************************/
+    /**
+     * @name getMessageElement
+     * @description Renvoie l'élément à insérer dans le chat
+     * @param {Object} data Objet du message
+     *          > {String} pseudo
+     *          > {String} msg
+     *          > {String} date
+     *          > {String} color
+     * @param {boolean} perso Si le message provient du client courant
+     * @returns {Element}
+     */
     function getMessageElement(data,perso){
         var message = document.createElement("div");
         if(data.pseudo == "server"){
@@ -647,7 +765,16 @@ $(document).ready(function() {
         }
         return message;
     }
-
+    /**
+     * @name addMessageElt
+     * @description Ajoute un message arrivant au chat
+     * @param {Object} data Objet du message
+     *          > {String} pseudo
+     *          > {String} msg
+     *          > {String} date
+     *          > {String} color
+     * @param {boolean} perso Si le message provient du client courant
+     */
     function addMessageElt(data,perso){
         var container = document.querySelector(".msg-container");
         if(lastDataMsg.pseudo == data.pseudo && data.pseudo != "server"){
@@ -661,7 +788,10 @@ $(document).ready(function() {
         }
         $(container).animate({scrollTop : container.scrollHeight-container.clientHeight},300);
     }
-
+    /**
+     * @name loadChat
+     * @description Construit l'élément #chat pour les appareils non mobiles
+     */
     function loadChat(){
         if( !(navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
             || navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
@@ -731,10 +861,6 @@ $(document).ready(function() {
     //        }
     //    }
     //});
-
-    // Tableau de position des motos sur le client ET sur le serveur
-    // sur le serveur on a une fonction avec un set interval qui renverra le tableau des positions des motos à tous les
-    // clients pour les mettre a jour
 });
 })(jQuery);
 
