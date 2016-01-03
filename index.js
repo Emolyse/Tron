@@ -25,7 +25,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:1,max:3,current:0},
+    capacity        : {min:1,max:1,current:0},
     pas             : 3,
     gameSize        : {w:500,l:500},
     pathLength      : 150,
@@ -248,7 +248,6 @@ function initGame (callback) {
  */
 function startGame () {
     serverData.playing=true;
-    serverData.date = new Date();
     if(serverData.refreshIntervalId) {
         clearInterval(serverData.refreshIntervalId);
         serverData.refreshIntervalId = null;
@@ -257,6 +256,7 @@ function startGame () {
     }
     app.io.broadcast('launch',{time:Math.round(serverData.startTime/1000),msg:"Go !"})
     setTimeout(function(){
+        serverData.date = new Date();
         app.io.broadcast('start');
         //console.log("Set Interval");
         serverData.refreshIntervalId = setInterval(function(){
@@ -473,8 +473,8 @@ function collision () {
                             y = oldPoint.y;
                             ymax = point.y;
                         } else {
-                            y = point.x+1;
-                            ymax = oldPoint.x+1;
+                            y = point.y+1;
+                            ymax = oldPoint.y+1;
                         }
                         for (;y< ymax; y++) {
                             gridVal = grid[point.x][y];
@@ -560,14 +560,16 @@ function collision () {
     }
     if(stopTheGame) stopGame(function () {
         //Si il y a suffisament de monde dans la waiting room on relance automatiquement la partie au bout de 10 sec
-        if(serverData.waitingRoom.length >= serverData.capacity.min){
+        {
             app.io.broadcast('chat', {pseudo: "server", msg: "The game will restart in 15 seconds"});
             setTimeout(function () {
+                if(serverData.waitingRoom.length >= serverData.capacity.min) {
                     initGame(function () {
                         app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
                         console.log("## Start Game : Relance auto");
                         startGame();
                     });
+                }
             },15000);
         }
     });

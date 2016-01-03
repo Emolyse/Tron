@@ -6,16 +6,16 @@ initedMoto = false;
 
 var motoPath = '/client/img/motos/moto_';
 var motos = {
-    blue        :{file: "blue.png", color: "blue"},
-    green       :{file: "green.png", color:"green"},
-    greenblue   :{file: "greenblue.png", color:"greenblue"},
-    greyblue    :{file: "greyblue.png", color:"greyblue"},
-    orange      :{file: "orange.png", color:"orange"},
-    pink        :{file: "pink.png", color:"pink"},
-    purple      :{file: "purple.png", color:"purple"},
-    red         :{file: "red.png", color:"red"},
-    violet      :{file: "violet.png", color:"violet"},
-    yellow      :{file: "yellow.png", color:"yellow"}
+    blue        :{file: "blue.png", color: "#1A237E"},
+    green       :{file: "green.png", color:"#2E7D32"},
+    greenblue   :{file: "greenblue.png", color:"#00BCD4"},
+    greyblue    :{file: "greyblue.png", color:"#B3E5FC"},
+    orange      :{file: "orange.png", color:"#FF9800"},
+    pink        :{file: "pink.png", color:"#E91E63"},
+    purple      :{file: "purple.png", color:"#B71C1C"},
+    red         :{file: "red.png", color:"#D50000"},
+    violet      :{file: "violet.png", color:"#4A148C"},
+    yellow      :{file: "yellow.png", color:"#FFEA00"}
 };
 
 var playersData = {
