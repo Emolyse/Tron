@@ -2,7 +2,6 @@ var initGamma =false,initBeta=0;
 var joueur = {
     pseudo:localStorage.pseudo
 };
-initedMoto = false;
 
 var motoPath = '/client/img/motos/moto_';
 var motos = {
@@ -323,7 +322,6 @@ $(document).ready(function() {
             });
         });
         io.emit("ready",joueur);
-
     }
 
 

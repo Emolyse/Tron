@@ -41,6 +41,7 @@ var serverData = {
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     connections     : {},//On associe chaque pseudo à son sessionid
     startTime       : 5000,//Durée d'attente avant le lancement de la partie
+    refreshTimoutId : -1,
     invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 };
 
@@ -247,26 +248,30 @@ function initGame (callback) {
  * @description Après que la partie ait été initialisée on lance les itérations de jeu
  */
 function startGame () {
-    serverData.playing=true;
-    if(serverData.refreshIntervalId) {
-        clearInterval(serverData.refreshIntervalId);
-        serverData.refreshIntervalId = null;
-        //console.log("Clear Interval");
-        //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
-    }
-    app.io.broadcast('launch',{time:Math.round(serverData.startTime/1000),msg:"Go !"})
-    setTimeout(function(){
+    if(serverData.refreshTimoutId == -1) {
+        serverData.playing = true;
+        if (serverData.refreshIntervalId) {
+            clearInterval(serverData.refreshIntervalId);
+            serverData.refreshIntervalId = null;
+            //console.log("Clear Interval");
+            //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
+        }
+        app.io.broadcast('launch', {time: Math.round(serverData.startTime / 1000), msg: "Go !"});
         serverData.date = new Date();
-        app.io.broadcast('start');
-        //console.log("Set Interval");
-        serverData.refreshIntervalId = setInterval(function(){
-            iteration(function () {
-                var normalizeData = normalize();
-                app.io.broadcast('iteration', normalizeData);
-                collision();
-            });
-        },25);
-    },serverData.startTime);
+        serverData.refreshTimoutId = setTimeout(function () {
+            serverData.refreshTimoutId = -1;
+            serverData.date = new Date();
+            app.io.broadcast('start');
+            //console.log("Set Interval");
+            serverData.refreshIntervalId = setInterval(function () {
+                iteration(function () {
+                    var normalizeData = normalize();
+                    app.io.broadcast('iteration', normalizeData);
+                    collision();
+                });
+            }, 25);
+        }, serverData.startTime);
+    }
 }
 
 /**
@@ -434,139 +439,174 @@ function normalize () {
  */
 function collision () {
     var stopTheGame = true;
+    var cptAlive = 0;
     var grid = [];
     for (var i = 0; i < serverData.gameSize.w; i++) {
         grid[i]=[];
     }
-    for(var i in clientData.players){
+    for(var i in clientData.players) {
         var player = clientData.players[i];
-        var pos = player.position;
-        //On détecte les collisions avec les bordures
-        if(player.statut=="playing") {
-            switch (player.direction) {
-                case 'n': if (pos.y - serverData.motoSize.l < 0) player.statut = "dead"; break;
-                case 'e': if (pos.x + serverData.motoSize.l > serverData.gameSize.w) player.statut = "dead"; break;
-                case 's': if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead"; break;
-                case 'w': if (pos.x - serverData.motoSize.l < 0) player.statut = "dead"; break;
+        if (player.statut != "waiting") {
+            var pos = player.position;
+            //On détecte les collisions avec les bordures
+            if (player.statut == "playing") {
+                switch (player.direction) {
+                    case 'n':
+                        if (pos.y - serverData.motoSize.l < 0) player.statut = "dead";
+                        break;
+                    case 'e':
+                        if (pos.x + serverData.motoSize.l > serverData.gameSize.w) player.statut = "dead";
+                        break;
+                    case 's':
+                        if (pos.y + serverData.motoSize.l > serverData.gameSize.l) player.statut = "dead";
+                        break;
+                    case 'w':
+                        if (pos.x - serverData.motoSize.l < 0) player.statut = "dead";
+                        break;
+                }
             }
-        }
 
-        //Dessine la trace dans la grille
-        if(player.statut=="playing" || player.statut=="dead"){
-            if(player.path.length > 0) {
-                var point = player.path[0];
-                if(point.x<0 || point.y<0) break;
-                var oldPoint, xmax,ymax;
-                //var gridVal = grid[point.x][point.y];
-                //if (typeof gridVal == "number") {
-                //    clientData.players[clientData.list[gridVal]].statut = "dead";
-                //}
-                //grid[point.x][point.y] = "t";
-                for (var j=1;j<player.path.length;j++) {
-                    oldPoint = player.path[j-1];
-                    point = player.path[j];
-                    xmax= point.x-oldPoint.x;
-                    ymax= point.y-oldPoint.y;
-                    if(xmax==0){
-                        var y;
-                        if(ymax>0){
-                            y = oldPoint.y;
-                            ymax = point.y;
-                        } else {
-                            y = point.y+1;
-                            ymax = oldPoint.y+1;
-                        }
-                        for (;y< ymax; y++) {
-                            gridVal = grid[point.x][y];
-                            if(typeof gridVal == "number"){
-                                clientData.players[clientData.list[gridVal]].statut = "dead";
+            //Dessine la trace dans la grille
+            if (player.statut == "playing" || player.statut == "dead") {
+                if (player.path.length > 0) {
+                    var point = player.path[0];
+                    if (point.x < 0 || point.y < 0) break;
+                    var oldPoint, xmax, ymax;
+                    //var gridVal = grid[point.x][point.y];
+                    //if (typeof gridVal == "number") {
+                    //    clientData.players[clientData.list[gridVal]].statut = "dead";
+                    //}
+                    //grid[point.x][point.y] = "t";
+                    for (var j = 1; j < player.path.length; j++) {
+                        oldPoint = player.path[j - 1];
+                        point = player.path[j];
+                        xmax = point.x - oldPoint.x;
+                        ymax = point.y - oldPoint.y;
+                        if (xmax == 0) {
+                            var y;
+                            if (ymax > 0) {
+                                y = oldPoint.y;
+                                ymax = point.y;
+                            } else {
+                                y = point.y + 1;
+                                ymax = oldPoint.y + 1;
                             }
-                            grid[point.x][y]="t";
-                        }
-                    }else{
-                        var x;
-                        if(xmax>0){
-                            x = oldPoint.x;
-                            xmax = point.x;
-                        } else {
-                            x = point.x+1;
-                            xmax = oldPoint.x+1;
-                        }
-                        for (;x<xmax; x++) {
-                            gridVal = grid[x][point.y];
-                            if(typeof gridVal == "number"){
-                                clientData.players[clientData.list[gridVal]].statut = "dead";
+                            for (; y < ymax; y++) {
+                                gridVal = grid[point.x][y];
+                                if (typeof gridVal == "number") {
+                                    clientData.players[clientData.list[gridVal]].statut = "dead";
+                                }
+                                grid[point.x][y] = "t";
                             }
-                            grid[x][point.y]="t";
+                        } else {
+                            var x;
+                            if (xmax > 0) {
+                                x = oldPoint.x;
+                                xmax = point.x;
+                            } else {
+                                x = point.x + 1;
+                                xmax = oldPoint.x + 1;
+                            }
+                            for (; x < xmax; x++) {
+                                gridVal = grid[x][point.y];
+                                if (typeof gridVal == "number") {
+                                    clientData.players[clientData.list[gridVal]].statut = "dead";
+                                }
+                                grid[x][point.y] = "t";
+                            }
                         }
                     }
                 }
             }
-        }
 
-        //On dessine la moto dans la grille
-        if(player.statut=="playing") {
-            var winit = (serverData.motoSize.w - 1) / 2, linit = serverData.motoSize.l-1;
-            var x=player.position.x,y= player.position.y,xmax= serverData.motoSize.w,ymax=serverData.motoSize.l;
-            switch (player.direction) {
-                case 'n': x -= winit; y -= linit; xmax+=x;ymax+=y; break;
-                case 'e': y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
-                case 's': x -= winit; xmax+=x;ymax+=y;break;
-                case 'w': x -= linit; y -= winit; ymax = y+xmax; xmax = x+serverData.motoSize.l; break;
-            }
-            //console.log(x,xmax,y,ymax);
-            for(;x<xmax;x++){
-                for (var j=y; j<ymax; j++) {
-                    var gridVal = grid[x][j];
-                    if(typeof gridVal == "number"){
-                        clientData.players[clientData.list[gridVal]].statut = "dead";
-                        player.statut = "dead";
-                    }else if(gridVal == "t"){
-                        player.statut = "dead";
-                    } else {
-                        grid[x][j] = clientData.list.indexOf(i);
+            //On dessine la moto dans la grille
+            if (player.statut == "playing") {
+                var winit = (serverData.motoSize.w - 1) / 2, linit = serverData.motoSize.l - 1;
+                var x = player.position.x, y = player.position.y, xmax = serverData.motoSize.w, ymax = serverData.motoSize.l;
+                switch (player.direction) {
+                    case 'n':
+                        x -= winit;
+                        y -= linit;
+                        xmax += x;
+                        ymax += y;
+                        break;
+                    case 'e':
+                        y -= winit;
+                        ymax = y + xmax;
+                        xmax = x + serverData.motoSize.l;
+                        break;
+                    case 's':
+                        x -= winit;
+                        xmax += x;
+                        ymax += y;
+                        break;
+                    case 'w':
+                        x -= linit;
+                        y -= winit;
+                        ymax = y + xmax;
+                        xmax = x + serverData.motoSize.l;
+                        break;
+                }
+                //console.log(x,xmax,y,ymax);
+                for (; x < xmax; x++) {
+                    for (var j = y; j < ymax; j++) {
+                        var gridVal = grid[x][j];
+                        if (typeof gridVal == "number") {
+                            clientData.players[clientData.list[gridVal]].statut = "dead";
+                            player.statut = "dead";
+                        } else if (gridVal == "t") {
+                            player.statut = "dead";
+                        } else {
+                            grid[x][j] = clientData.list.indexOf(i);
+                        }
                     }
                 }
             }
-        }
-        //if(iter++==200){
-        //    app.io.broadcast("drawGrid",grid);
-        //}
-        //On gère qu'un statut invincible boucle sur les bordures
-        if (player.statut=="invincible"){
-            switch (player.direction) {
-                case 'n':
-                    if (pos.y < 0) {
-                        player.position.y=serverData.gameSize.l+serverData.motoSize.l;
-                    } break;
-                case 'e':
-                    if (pos.x > serverData.gameSize.w) {
-                        player.position.x=-serverData.motoSize.l;
-                    } break;
-                case 's':
-                    if (pos.y > serverData.gameSize.l) {
-                        player.position.y=-serverData.motoSize.l;
-                    } break;
-                case 'w':
-                    if (pos.x < 0) {
-                        player.position.x=serverData.gameSize.w+serverData.motoSize.l;
-                    } break;
+            //if(iter++==200){
+            //    app.io.broadcast("drawGrid",grid);
+            //}
+            //On gère qu'un statut invincible boucle sur les bordures
+            if (player.statut == "invincible") {
+                switch (player.direction) {
+                    case 'n':
+                        if (pos.y < 0) {
+                            player.position.y = serverData.gameSize.l + serverData.motoSize.l;
+                        }
+                        break;
+                    case 'e':
+                        if (pos.x > serverData.gameSize.w) {
+                            player.position.x = -serverData.motoSize.l;
+                        }
+                        break;
+                    case 's':
+                        if (pos.y > serverData.gameSize.l) {
+                            player.position.y = -serverData.motoSize.l;
+                        }
+                        break;
+                    case 'w':
+                        if (pos.x < 0) {
+                            player.position.x = serverData.gameSize.w + serverData.motoSize.l;
+                        }
+                        break;
+                }
             }
-        }
 
-        if(clientData.players[i].statut != 'dead'){
-            stopTheGame = false;
+            if (clientData.players[i].statut != 'dead') {
+                stopTheGame = false;
+            }
         }
     }
+
     if(stopTheGame) stopGame(function () {
         //Si il y a suffisament de monde dans la waiting room on relance automatiquement la partie au bout de 10 sec
         {
             app.io.broadcast('chat', {pseudo: "server", msg: "The game will restart in 15 seconds"});
-            setTimeout(function () {
+            serverData.refreshTimoutId = setTimeout(function () {
                 if(serverData.waitingRoom.length >= serverData.capacity.min) {
                     initGame(function () {
                         app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
                         console.log("## Start Game : Relance auto");
+                        serverData.refreshTimoutId = -1;
                         startGame();
                     });
                 }
@@ -674,14 +714,21 @@ app.io.route('ready', function (req) {
         if(!serverData.playing) {
             if (serverData.waitingRoom.indexOf(req.data.pseudo) == -1) {
                 serverData.waitingRoom.push(req.data.pseudo);
-                req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the game !"});
+                req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the wainting room !"});
             }
             if(serverData.waitingRoom.length >= serverData.capacity.min) {
-                initGame(function () {
-                    app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
-                    console.log("## Start Game : Capacité min atteinte");
-                    startGame();
-                });
+                if(serverData.waitingRoom.length > serverData.capacity.max){
+                    req.io.emit('chat', {pseudo: "server", msg: "The game is full ! Please watch and wait"});
+                } else if(serverData.refreshTimoutId == -1) {
+                    initGame(function () {
+                        app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                        console.log("## Start Game : Capacité min atteinte");
+                        startGame();
+                    });
+                }else {
+                    var time = Date.now()-serverData.date;
+                    req.io.emit('chat', {pseudo: "server", msg: "Game will start in "+ Math.round(time/1000) + " seconds"});
+                }
             } else {
                 var player = clientData.players[req.data.pseudo];
                 initPlayerPosition(player, serverData.waitingRoom.length-1, function () {
@@ -716,6 +763,8 @@ app.io.route('ready', function (req) {
         } else {//Il n'y a plus de place dans la partie on met le joueur en attente
             if (serverData.waitingRoom.indexOf(req.data.pseudo) == -1) {
                 serverData.waitingRoom.push(req.data.pseudo);
+                req.io.emit('chat', {pseudo: "server", msg: "The game is full ! Please watch and wait"});
+                req.io.emit('initialisation', normalize());
                 req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the wainting room !"});
             }
         }
