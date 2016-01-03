@@ -262,6 +262,7 @@ form#chat > .input-container > #submit-msg{
  *          FLECHES         *
  ***************************/
 .fleches{
+    z-index: 1;
     position: fixed;
     top: 0;
     left: 0;
@@ -318,7 +319,7 @@ form#chat > .input-container > #submit-msg{
  ***************************/
 .compteur{
     display: block;
-    z-index: 10;
+    z-index: 2;
     position: absolute;
     pointer-events: none;
     top:50%;
@@ -367,10 +368,12 @@ form#chat > .input-container > #submit-msg{
  *           SCORE          *
  ***************************/
 #score{
+    z-index: 0;
     height: 100%;
     position: fixed;
     left:0;
     top: 0;
+    pointer-events: none;
 }
 #score > .block {
     position: absolute;

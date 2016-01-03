@@ -17,32 +17,10 @@ var motos = {
     yellow      :{file: "yellow.png", color:"#FFEA00"}
 };
 
-var playersData = {
-    //"list": ["Loxy", "proxy"],
-    "list": ["Loxy", "proxy"],
-    //Cette liste permet de naviguer dans clientData
-    //On retrouve ensuite les 0 à 10 clients du plateau
-    "players": {
-        /*"Loxy": {
-            position: {x: 0.25, y: 0.10},//Position de la moto du joueur ( pos du svg du client)
-            direction: 'e',//Direction courante dans laquelle se dirige le joueur
-            moto: "blue",//Le couleur de la moto choisie
-            path: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10}]
-            //Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-        },
 
-        "proxy": {
-            position: {x: 0.7, y: 0.05},//Position de la moto du joueur ( pos du svg du client)
-            direction: 'n',//Direction courante dans laquelle se dirige le joueur
-            moto: "red",//Le couleur de la moto choisie
-            path: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}]//Représente la trace de chaque joueur ( tracé du canvas pour ce joueur)
-        }*/
-    }
-};
-/*Variable qui sert de test utilisée dans le redimentionnement de la fenêtre*/
-var playersData2 = {"list": ["Loxy", "proxy"], "players": {"Loxy": {position: {x: 0.25, y: 0.25}, direction: 's', moto: "blue", path: [{x: 0.05, y: 0.1}, {x: 0.05, y: 0.25}, {x: 0.15, y: 0.25}, {x: 0.15, y: 0.10}, {x:0.25, y:0.10},{x: 0.25, y: 0.25}]}, "proxy": {position: {x: 0.5, y: 0.05}, direction: 'w', moto: "red", path: [{x: 0.5, y: 0.1}, {x: 0.5, y: 0.25}, {x: 0.7, y: 0.25}, {x: 0.7, y: 0.05}, {x: 0.5, y: 0.05}]}}};
-
+/* Variable pour gérer les arrivées des messages*/
 var lastDataMsg = {pseudo:""};
+var lastDateMsg = new Date();
 
 /* Variables de l'initialisation du canvas */
 var ctx;
@@ -133,7 +111,7 @@ $(document).ready(function() {
         loadLoginOverlay(resp);
     });
 
-    $(window).unload(function(){
+    window.addEventListener('beforeunload',function(){
         io.emit("rmclient",joueur);
     });
     /****************************************
@@ -228,8 +206,10 @@ $(document).ready(function() {
             if (resp.error) {//Si on a un conflit concernant les paramètre de log (un log simultané de 2 joueurs avec le meme pseudo/moto
 
             } else {
-                io.removeListener('motoUnavailable');
-                io.removeListener('motoAvailable');
+                //io.removeListener('motoUnavailable');
+                delete io.$events.motoUnavailable;
+                //io.removeListener('motoAvailable');
+                delete io.$events.motoAvailable;
                 //On fait disparaitre l'overlay
                 var $overlay = $("div.overlay");
                 if ($overlay.is(":visible")) {
@@ -281,7 +261,7 @@ $(document).ready(function() {
             console.log("newplayer",player);
             player = deNormalizePlayer(player);
             addMoto(player);
-            addScore(player.pseudo);
+            addScore(player.pseudo,player.moto,player.win);
         });
 
         //Si un joueur quitte la partie on supprime sa moto
@@ -294,13 +274,14 @@ $(document).ready(function() {
         io.on("initialisation",function (data) { // Une partie commence
             //On charge l'ensemble des motos
             console.log("initialisation");
+            ctx.clearRect(0,0,canvasSize,canvasSize);
             regenerateMotos(deNormalizeAll(data), function () {
                 //drawPlayers(deNormalizeAll(data), function () {
                     //A chaque itération on met à jour le plateau
                     trash = loadScore(data.players);
-                    io.on("iteration",function(data){
-                        drawPlayers(deNormalizeAll(data));
-                        updateScore(data.players);
+                    io.on("iteration",function(dataBis){
+                        drawPlayers(deNormalizeAll(dataBis));
+                        updateScoreByTime(dataBis.players);
                     });
                 //});
                 //Lorsque la partie commence en charge le controle utilisateur
@@ -310,13 +291,14 @@ $(document).ready(function() {
                     initVirtualControl();
                     document.addEventListener('keydown', controlKeyHandler);
                     //On supprime tous les listeners liés à la partie lorsqu'elle se termine
-                    io.on("end", function () {
-                        io.removeListener("iteration");
-                        io.removeListener("newPlayer");
-                        io.removeListener("removePlayer");
+                    io.on("end", function (players) {
+                        updateScoreByWin(players)
+                        delete io.$events.iteration;
                         window.removeEventListener('deviceorientation',orientationHandler);
-                        window.removeEventListener('keydown',controlKeyHandler);
+                        document.removeEventListener('keydown',controlKeyHandler);
                         $(".fleches").remove();
+                        delete io.$events.start;
+                        delete io.$events.end;
                     });
                 });
             });
@@ -358,10 +340,10 @@ $(document).ready(function() {
     }
     function initVirtualControl(){
         //Sur les mobiles on ajoute des touches tactiles virtuelles
-        if( navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
+        if( (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
             || navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
             || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/BlackBerry/i)
-            || navigator.userAgent.match(/Windows Phone/i)
+            || navigator.userAgent.match(/Windows Phone/i))&& !/Chrome/i.test(navigator.userAgent)
         ){
             //On ajoute des touches de controle virtuelle
             try{
@@ -584,20 +566,29 @@ $(document).ready(function() {
             var score = document.createElement("section");
             score.id = "score";
             document.body.appendChild(score);
+            if( navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
+                || navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
+                || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/BlackBerry/i)
+                || navigator.userAgent.match(/Windows Phone/i)
+            ){
+                console.log(Math.min(innerHeight, innerWidth));
+                score.style.top = (Math.min(innerHeight, innerWidth)+15)+"px";
+            }
         }
         for(var pseudo in players){
             if(players[pseudo].statut != "waiting")
-                trash = addScore(pseudo);
+                trash = addScore(pseudo,players[pseudo].moto,players[pseudo].win);
         }
-        true;
+        updateScoreByWin(players);
+        return true;
     }
 
-    function addScore(pseudo){
+    function addScore(pseudo,moto,win){
         var score = document.querySelector("#score");
         var block = document.createElement("div");
         block.classList.add("block")
         block.id="score_"+pseudo;
-        $("<div class='position'> 0 </div>").appendTo(block);
+        $("<div class='position' style='background-color:"+motos[moto].color+"'> "+win+" </div>").appendTo(block);
         $("<div class='pseudo'>"+pseudo+"</div>").appendTo(block);
         $("<div class='value'>"+0+"</div>").appendTo(block);
         score.appendChild(block);
@@ -607,29 +598,40 @@ $(document).ready(function() {
     function removeScore(pseudo){
         $("#score_"+pseudo).remove();
     }
-    function updateScore(players){
-        var sortedKeys = Object.keys(players).sort(function (a,b) {
-            return players[b].score-players[a].score;
-        });
+    function updateScore(players,sortedKeys){
         for (var i = 0; i < sortedKeys.length; i++) {
             if(players[sortedKeys[i]].statut != "waiting")
             {
                 var block = document.querySelector("#score_" + sortedKeys[i]);
                 block.style.top = (i * (block.clientHeight + 5) + 5) + "px";
-                console.log(i, block.clientHeight);
-                block.querySelector(".position").innerHTML = (i + 1) + "";
+                block.querySelector(".position").innerHTML = players[sortedKeys[i]].win + "";
                 block.querySelector(".value").innerHTML = players[sortedKeys[i]].score;
             }
         }
+    }
+    function updateScoreByTime(players){
+        var sortedKeys = Object.keys(players).sort(function (a,b) {
+            return players[b].score-players[a].score;
+        });
+        updateScore(players,sortedKeys);
+    }
+    function updateScoreByWin(players){
+        var sortedKeys = Object.keys(players).sort(function (a,b) {
+            return players[b].win-players[a].win;
+        });
+        updateScore(players,sortedKeys);
     }
 
     /****************************************
      *                  CHAT                *
      ****************************************/
     function getMessageElement(data,perso){
-
         var message = document.createElement("div");
         if(data.pseudo == "server"){
+            var newDateMsg = new Date();
+            if(newDateMsg-lastDateMsg>500)
+                $("#chat > .msg-container > .msg-server").remove();
+            lastDateMsg = newDateMsg;
             message.classList.add("msg-server");
             message.innerHTML = data.msg;
         }else{
@@ -661,36 +663,47 @@ $(document).ready(function() {
     }
 
     function loadChat(){
-        io.on('chat', function (data) {
-            addMessageElt(data,false)
-        });
-        var chat = document.createElement("form");
-        chat.id = "chat";
-        chat.innerHTML = '<section class="msg-container"></section>' +
-            '<section class="input-container">' +
-            '<input type="text" id="input-msg">' +
-            '<input type="submit" id="submit-msg" value=">">' +
-            '</section>';
-        document.querySelector("main").appendChild(chat);
-        chat.addEventListener('submit',function (e) {
-            e.preventDefault();
-            var date = new Date();
-            var heure = date.getHours();
-            var min   = date.getMinutes();
-            var sec   = date.getSeconds();
-            date = (heure<10?"0":"")+heure+":"+(min<10?"0":"")+min+":"+(sec<10?"0":"")+sec;
-            var data = {pseudo:joueur.pseudo,msg:$("#input-msg").val(),date:date,color:motos[joueur.moto].color};
-            if(data.msg.length>0){
-                $("#input-msg").val("");
-                io.emit('chat',data,function(rep){
-                    if(rep.error){
-                        //Indiquer un problème (ex : flood)
-                    } else {
-                        addMessageElt(data,true);
-                    }
-                });
-            }
-        });
+        if( !(navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
+            || navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
+            || navigator.userAgent.match(/iPod/i) || navigator.userAgent.match(/BlackBerry/i)
+            || navigator.userAgent.match(/Windows Phone/i))
+        ) {
+            io.on('chat', function (data) {
+                addMessageElt(data, false)
+            });
+            var chat = document.createElement("form");
+            chat.id = "chat";
+            chat.innerHTML = '<section class="msg-container"></section>' +
+                '<section class="input-container">' +
+                '<input type="text" id="input-msg">' +
+                '<input type="submit" id="submit-msg" value=">">' +
+                '</section>';
+            document.querySelector("main").appendChild(chat);
+            chat.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var date = new Date();
+                var heure = date.getHours();
+                var min = date.getMinutes();
+                var sec = date.getSeconds();
+                date = (heure < 10 ? "0" : "") + heure + ":" + (min < 10 ? "0" : "") + min + ":" + (sec < 10 ? "0" : "") + sec;
+                var data = {
+                    pseudo: joueur.pseudo,
+                    msg: $("#input-msg").val(),
+                    date: date,
+                    color: motos[joueur.moto].color
+                };
+                if (data.msg.length > 0) {
+                    $("#input-msg").val("");
+                    io.emit('chat', data, function (rep) {
+                        if (rep.error) {
+                            //Indiquer un problème (ex : flood)
+                        } else {
+                            addMessageElt(data, true);
+                        }
+                    });
+                }
+            });
+        }
     }
 
     //Fonction de debug qui affiche la grille de collision envoyée par le serveur

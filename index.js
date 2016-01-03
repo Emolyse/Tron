@@ -25,10 +25,10 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:1,max:1,current:0},
-    pas             : 3,
+    capacity        : {min:2,max:2,current:0},
+    pas             : 2,
     gameSize        : {w:500,l:500},
-    pathLength      : 150,
+    pathLength      : 500,
     motoSize        : { w: 7, l: 23},//La largeur doit toujours être impair
     motos_available :["blue", "green", "greenblue", "greyblue", "orange", "pink", "purple", "red", "violet", "yellow"],//motos
                                                                                                                        // disponibles
@@ -41,8 +41,9 @@ var serverData = {
     waitingRoom     : [],//Joueur en attente quand le plateau est plein max:10 joueurs
     connections     : {},//On associe chaque pseudo à son sessionid
     startTime       : 5000,//Durée d'attente avant le lancement de la partie
+    refreshIntervalId : -1,
     refreshTimoutId : -1,
-    invincibleTime   : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
+    invincibleTime  : 4000//temps d'invincibilité quand un joueur rejoint une partie en cours
 };
 
 var chatData = [];
@@ -93,7 +94,7 @@ function isAvailablePseudo (pseudo) {
 function createPlayer(player,sId){
     serverData.connections[sId]=player.pseudo;
     clientData.list.push(player.pseudo);
-    clientData.players[player.pseudo]= { pseudo:player.pseudo,position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting",score:0};
+    clientData.players[player.pseudo]= { pseudo:player.pseudo,position:{ x: -1, y: -1}, direction: 'x', moto: '', path:[], motoSize:{l:-1, w:-1},statut:"waiting",score:0,win:0};
     console.log("Create",player.pseudo,sId,clientData.list);
     console.log(serverData.waitingRoom);
 }
@@ -176,7 +177,7 @@ function initPlayerPosition(player,indice,callback){
  */
 function initPlayerInGame(player, callback){
     if(serverData.capacity.current>=serverData.capacity.max){
-        console.log(clientData.players);
+        //console.log(clientData.players);
         console.log("Il n'y plus de position initiale disponible");
         return false;
     }
@@ -250,9 +251,9 @@ function initGame (callback) {
 function startGame () {
     if(serverData.refreshTimoutId == -1) {
         serverData.playing = true;
-        if (serverData.refreshIntervalId) {
+        if (serverData.refreshIntervalId!=-1) {
             clearInterval(serverData.refreshIntervalId);
-            serverData.refreshIntervalId = null;
+            serverData.refreshIntervalId = -1;
             //console.log("Clear Interval");
             //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
         }
@@ -279,17 +280,19 @@ function startGame () {
  * @description Arrete la partie, le signale à tout le monde et replace les joueurs au début de la file d'attente
  * @param callback
  */
-function stopGame (callback){
-    console.log("Partie Interrompue");
-    if(serverData.refreshIntervalId){
+function stopGame (winner,callback){
+    if(winner!==""){
+        app.io.broadcast('chat', {pseudo: "server", msg: winner+" won the game !"});
+        console.log(winner,"won",clientData.players[winner].win++);
+    }
+    if(serverData.refreshIntervalId!=-1){
         clearInterval(serverData.refreshIntervalId);
-        serverData.refreshIntervalId = null;
-        console.log("Clear Interval");
+        serverData.refreshIntervalId = -1;
+        //console.log("Clear Interval");
         //app.io.broadcast("chat",{pseudo:"server",msg:"Clear Interval"});
     }
     //On signale à tout le monde l'intérruption de la partie
-    app.io.broadcast("end");
-    app.io.broadcast("chat",{pseudo:"server",msg:"Game finished !"});
+    app.io.broadcast("end",clientData.players);
     //Ici on rajoute les joueur != waiting à la waitingroom afin qu'ils soient les premiers ajouté à la création de
     // partie
     for(var p in clientData.players){
@@ -372,14 +375,10 @@ function pathHandler(player){
  * @param callback
  */
 function iteration(callback){
-    var newDate = new Date();
-    var time = newDate-serverData.date;
-    serverData.date = newDate;
     for(var p in clientData.players){
         //On transforme ce switch en fonction setMove(player,pas)
         var player = clientData.players[p];
         if(player.statut=="playing" || player.statut=="invincible") {
-            player.score+= time;
             switch (player.direction) {
                 case "n":
                     player.position.y += -serverData.pas;
@@ -407,7 +406,6 @@ function iteration(callback){
  * @description On normalize les données d'un client
  * @return client normalisé
  */
-//var iter = 0;
 function normalizePlayer(p){
     var player = JSON.parse(JSON.stringify(p));
     player.position.x/=serverData.gameSize.w;
@@ -438,7 +436,11 @@ function normalize () {
  *     plateau lorsqu'il touche une bordure
  */
 function collision () {
-    var stopTheGame = true;
+    var newDate = new Date();
+    var time = newDate-serverData.date;
+    serverData.date = newDate;
+
+    var winner = "";
     var cptAlive = 0;
     var grid = [];
     for (var i = 0; i < serverData.gameSize.w; i++) {
@@ -591,26 +593,32 @@ function collision () {
                 }
             }
 
-            if (clientData.players[i].statut != 'dead') {
-                stopTheGame = false;
+            if (player.statut != 'dead') {
+                player.score+= time;
+                cptAlive++;
+                winner = player.pseudo;
             }
         }
     }
 
-    if(stopTheGame) stopGame(function () {
+    if(cptAlive<2) stopGame(winner,function () {
         //Si il y a suffisament de monde dans la waiting room on relance automatiquement la partie au bout de 10 sec
         {
-            app.io.broadcast('chat', {pseudo: "server", msg: "The game will restart in 15 seconds"});
-            serverData.refreshTimoutId = setTimeout(function () {
-                if(serverData.waitingRoom.length >= serverData.capacity.min) {
-                    initGame(function () {
-                        app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
-                        console.log("## Start Game : Relance auto");
-                        serverData.refreshTimoutId = -1;
-                        startGame();
-                    });
-                }
-            },15000);
+            if(serverData.waitingRoom.length >= serverData.capacity.min) {
+                app.io.broadcast('chat', {pseudo: "server", msg: "The game will restart in 15 seconds"});
+                serverData.refreshTimoutId = setTimeout(function () {
+                    serverData.refreshTimoutId = -1;
+                    if (serverData.waitingRoom.length >= serverData.capacity.min) {
+                        initGame(function () {
+                            app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
+                            console.log("## Start Game : Relance auto");
+                            startGame();
+                        });
+                    }
+                }, 15000);
+            } else {
+                app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
+            }
         }
     });
 }
@@ -662,7 +670,20 @@ app.io.route('rmclient', function (req) {
                     }
                 }
             }else if( serverData.current == 0){//Personne en attente et plus personne dans la partie
-                stopGame();
+                stopGame("");
+            } else {
+                if(serverData.refreshTimoutId!=-1){
+                    clearTimeout(serverData.refreshTimoutId)
+                    serverData.refreshTimoutId = -1;
+                    app.io.broadcast("chat",{pseudo:"server",msg:"Game Interrupted !"});
+                    stopGame("");
+                }
+            }
+        } else {//
+            if(serverData.refreshTimoutId!=-1){//Si le jeu n'est pas en route mais qu'une partie allai être relancée
+                clearTimeout(serverData.refreshTimoutId)
+                serverData.refreshTimoutId = -1;
+                app.io.broadcast("chat",{pseudo:"server",msg:"Waiting for another player..."});
             }
         }
     });
@@ -734,7 +755,6 @@ app.io.route('ready', function (req) {
                 initPlayerPosition(player, serverData.waitingRoom.length-1, function () {
                     app.io.broadcast("chat",{pseudo:"server",msg:"New player"});
                     app.io.broadcast('newPlayer',normalizePlayer(player));
-                    console.log(normalizePlayer(player));
                     app.io.broadcast('chat', {pseudo: "server", msg: "Waiting for another player..."});
                 })
             }
@@ -747,7 +767,7 @@ app.io.route('ready', function (req) {
                     serverData.waitingRoom.push(req.data.pseudo);
                     req.io.broadcast('chat', {pseudo:"server",msg:req.data.pseudo+" joined the game !"});
                 }
-                stopGame(function () {
+                stopGame("",function () {
                     initGame(function () {
                         app.io.broadcast('chat', {pseudo: "server", msg: "Ready ! The game will start !"});
                         console.log("## Start Game : Restart après leave");
@@ -821,10 +841,6 @@ app.io.route('changeDir', function(req){
     }
 });
 
-app.listen(3001, function () {
-    console.log("Listening localhost:3001");
-});
-
 /**
  * @route chat
  * @description gestion du chat
@@ -852,4 +868,9 @@ app.io.route('chat', function (req) {
  */
 app.io.route('console', function(req){
     console.log(req.data);
+});
+
+
+app.listen(3001, function () {
+    console.log("Listening localhost:3001");
 });
