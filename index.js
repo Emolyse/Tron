@@ -25,7 +25,7 @@ var clientData = {
  */
 var serverData = {
     playing         : false,
-    capacity        : {min:2,max:2,current:0},
+    capacity        : {min:2,max:3,current:0},
     pas             : 2,
     gameSize        : {w:500,l:500},
     pathLength      : 500,
@@ -653,7 +653,7 @@ app.io.route('rmclient', function (req) {
             }else if( serverData.current == 0){//Personne en attente et plus personne dans la partie
                 stopGame("");
             } else {
-                if(serverData.refreshTimoutId!=-1){
+                if(serverData.refreshTimoutId!=-1 && serverData.capacity.current < serverData.capacity.min){
                     clearTimeout(serverData.refreshTimoutId)
                     serverData.refreshTimoutId = -1;
                     app.io.broadcast("chat",{pseudo:"server",msg:"Game Interrupted !"});
@@ -661,7 +661,7 @@ app.io.route('rmclient', function (req) {
                 }
             }
         } else {//
-            if(serverData.refreshTimoutId!=-1){//Si le jeu n'est pas en route mais qu'une partie allai être relancée
+            if(serverData.refreshTimoutId!=-1 && serverData.waitingRoom.length < serverData.capacity.min){//Si le jeu n'est pas en route mais qu'une partie allai être relancée
                 clearTimeout(serverData.refreshTimoutId)
                 serverData.refreshTimoutId = -1;
                 app.io.broadcast("chat",{pseudo:"server",msg:"Waiting for another player..."});
